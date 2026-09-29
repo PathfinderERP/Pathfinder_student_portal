@@ -3,11 +3,12 @@ import {
     ChevronRight, ArrowLeft, Award, Target,
     CheckCircle2, XCircle, Clock, Calendar,
     BarChart3, LayoutDashboard, Microscope,
-    BookOpen, PieChart, Activity, Loader2
+    BookOpen, PieChart, Activity, Loader2, Download
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import axios from 'axios';
+import { printOrSaveReport } from '../../../services/reportExportService';
 
 const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
     const { isDarkMode } = useTheme();
@@ -17,9 +18,77 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
     const [expandedSolution, setExpandedSolution] = useState({});
     const [data, setData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDownloading, setIsDownloading] = useState(false);
     const [error, setError] = useState(null);
 
     const tabs = ['Score Overview', 'Compare Result', 'Section Wise Result', 'Solution'];
+
+    const handleDownloadReport = async () => {
+        if (!data) return;
+        setIsDownloading(true);
+        try {
+            const totalMaxMarks = Math.max(0.1, (data.section_stats || []).reduce((acc, s) => acc + s.total_max, 0));
+
+            const reportObj = {
+                testName: test?.name || 'Test Report',
+                score: data.score ?? 0,
+                totalMarks: totalMaxMarks,
+                rank: `${data.rank || student?.rank || 1}/${data.total_students || 1}`,
+                attempted: `${data.total_attempted ?? (data.correct + data.incorrect + data.partial)}/${data.total_questions || 1}`,
+                accuracy: `${(data.accuracy || 0).toFixed(2)}%`,
+                percentage: `${(data.percentage || 0).toFixed(2)}%`,
+                percentile: `${(data.percentile || 0).toFixed(2)}%`,
+                positiveMarks: `+${(data.positive_marks || 0).toFixed(2)}`,
+                negativeMarks: `${data.negative_marks > 0 ? '-' : ''}${Math.abs(data.negative_marks || 0).toFixed(2)}`,
+                totalTime: data.duration_str || test?.duration || 'N/A',
+                timeSpent: data.time_spent_str || 'N/A',
+                submittedDate: data.submitted_date || 'N/A',
+                totalQuestions: data.total_questions || 1,
+                correct: data.correct || 0,
+                partial: data.partial || 0,
+                incorrect: data.incorrect || 0,
+                unattempted: data.unattempted || 0,
+                isMissed: data.is_missed || false,
+            };
+
+            const sectionsList = (data.section_stats || []).map((s, i) => ({
+                id: i + 1,
+                section: s.name,
+                total: s.total_questions,
+                correct: s.correct,
+                partial: s.partial,
+                incorrect: s.incorrect,
+                posM: (s.positive_marks || 0).toFixed(2),
+                negM: (s.negative_marks || 0).toFixed(2),
+                marks: (s.net_marks || 0).toFixed(2),
+                totalM: (s.total_max || 0).toFixed(2),
+                time: s.time_spent ? `${Math.floor(s.time_spent / 60)}m ${s.time_spent % 60}s` : '0m 0s'
+            }));
+
+            const userObj = {
+                name: data.student_name || student?.name,
+                username: student?.enrollment || data?.enrollment,
+                email: student?.email || student?.enrollment,
+                admission_number: student?.enrollment || data?.enrollment,
+                assigned_batch: student?.batch || 'General Batch',
+                centre_name: student?.centre || 'Main Centre'
+            };
+
+            await printOrSaveReport({
+                test,
+                data,
+                user: userObj,
+                report: reportObj,
+                sections: sectionsList,
+                filter: 'all'
+            });
+        } catch (err) {
+            console.error("Failed to generate report:", err);
+            alert("Failed to generate student report PDF. Please try again.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     useEffect(() => {
         const fetchPerformance = async () => {
@@ -82,19 +151,32 @@ const StudentPerformanceAnalysis = ({ student, test, onBack }) => {
                     <ChevronRight size={10} />
                     <span className="text-blue-600 uppercase">Performance Analysis</span>
                 </div>
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={onBack}
-                        className={`p-2 rounded-[5px] border transition-all hover:bg-blue-50 hover:text-blue-600 ${isDarkMode ? 'bg-white/5 border-white/5 text-slate-400' : 'bg-white border-slate-100 text-slate-500'}`}
-                    >
-                        <ArrowLeft size={20} />
-                    </button>
-                    <div>
-                        <h2 className={`text-4xl font-black tracking-tight uppercase leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Result</h2>
-                        <p className={`text-[10px] font-black mt-1 uppercase tracking-widest leading-none ${isDarkMode ? 'opacity-30' : 'opacity-90 text-slate-600'}`}>
-                            Performance Analysis for {data?.student_name || student?.name || 'Student'}
-                        </p>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={onBack}
+                            className={`p-2 rounded-[5px] border transition-all hover:bg-blue-50 hover:text-blue-600 ${isDarkMode ? 'bg-white/5 border-white/5 text-slate-400' : 'bg-white border-slate-100 text-slate-500'}`}
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                        <div>
+                            <h2 className={`text-4xl font-black tracking-tight uppercase leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Result</h2>
+                            <p className={`text-[10px] font-black mt-1 uppercase tracking-widest leading-none ${isDarkMode ? 'opacity-30' : 'opacity-90 text-slate-600'}`}>
+                                Performance Analysis for {data?.student_name || student?.name || 'Student'}
+                            </p>
+                        </div>
                     </div>
+                    {data && (
+                        <button
+                            onClick={handleDownloadReport}
+                            disabled={isDownloading}
+                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[5px] font-black uppercase tracking-widest text-xs flex items-center gap-2 transition-all shadow-lg shadow-emerald-900/20 active:scale-95 disabled:opacity-50"
+                            title="Download Complete Performance & Solution Report (PDF)"
+                        >
+                            {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                            <span>{isDownloading ? 'Generating PDF...' : 'Download Report'}</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

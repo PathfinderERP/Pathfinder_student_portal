@@ -10,6 +10,7 @@ import Pagination from '../../../components/common/Pagination';
 import StudentPerformanceAnalysis from './StudentPerformanceAnalysis';
 import Select from 'react-select';
 import * as XLSX from 'xlsx';
+import { printOrSaveReport } from '../../../services/reportExportService';
 
 
 const TestResultStudents = ({ test, onBack }) => {
@@ -23,6 +24,7 @@ const TestResultStudents = ({ test, onBack }) => {
     const [selectedCentre, setSelectedCentre] = useState([]);
     const [selectedPerformance, setSelectedPerformance] = useState('all');
     const [isLoading, setIsLoading] = useState(true);
+    const [downloadingEnrollment, setDownloadingEnrollment] = useState(null);
     const itemsPerPage = 8;
 
     const testName = test?.name || 'Test Result';
@@ -95,6 +97,81 @@ const TestResultStudents = ({ test, onBack }) => {
 
         return matchesSearch && matchesCentre && matchesPerformance;
     });
+
+    const handleDownloadStudentReport = async (student) => {
+        if (!test?.id || !student?.enrollment) return;
+        setDownloadingEnrollment(student.enrollment);
+        try {
+            const apiUrl = getApiUrl();
+            const res = await axios.get(
+                `${apiUrl}/api/tests/${test.id}/student_performance/?enrollment=${encodeURIComponent(student.enrollment)}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const perfData = res.data;
+            if (!perfData) return;
+
+            const totalMaxMarks = Math.max(0.1, (perfData.section_stats || []).reduce((acc, s) => acc + s.total_max, 0));
+
+            const reportObj = {
+                testName: test?.name || 'Test Report',
+                score: perfData.score ?? 0,
+                totalMarks: totalMaxMarks,
+                rank: `${perfData.rank || student.rank}/${perfData.total_students || students.length || 1}`,
+                attempted: `${perfData.total_attempted ?? (perfData.correct + perfData.incorrect + perfData.partial)}/${perfData.total_questions || 1}`,
+                accuracy: `${(perfData.accuracy || parseFloat(student.accuracy) || 0).toFixed(2)}%`,
+                percentage: `${(perfData.percentage || 0).toFixed(2)}%`,
+                percentile: `${(perfData.percentile || 0).toFixed(2)}%`,
+                positiveMarks: `+${(perfData.positive_marks || 0).toFixed(2)}`,
+                negativeMarks: `${perfData.negative_marks > 0 ? '-' : ''}${Math.abs(perfData.negative_marks || 0).toFixed(2)}`,
+                totalTime: perfData.duration_str || test.duration || 'N/A',
+                timeSpent: perfData.time_spent_str || student.totalTime || 'N/A',
+                submittedDate: perfData.submitted_date || 'N/A',
+                totalQuestions: perfData.total_questions || 1,
+                correct: perfData.correct || 0,
+                partial: perfData.partial || 0,
+                incorrect: perfData.incorrect || 0,
+                unattempted: perfData.unattempted || 0,
+                isMissed: perfData.is_missed || false,
+            };
+
+            const sectionsList = (perfData.section_stats || []).map((s, i) => ({
+                id: i + 1,
+                section: s.name,
+                total: s.total_questions,
+                correct: s.correct,
+                partial: s.partial,
+                incorrect: s.incorrect,
+                posM: (s.positive_marks || 0).toFixed(2),
+                negM: (s.negative_marks || 0).toFixed(2),
+                marks: (s.net_marks || 0).toFixed(2),
+                totalM: (s.total_max || 0).toFixed(2),
+                time: s.time_spent ? `${Math.floor(s.time_spent / 60)}m ${s.time_spent % 60}s` : '0m 0s'
+            }));
+
+            const userObj = {
+                name: perfData.student_name || student.name,
+                username: student.enrollment,
+                email: student.email || student.enrollment,
+                admission_number: student.enrollment,
+                assigned_batch: student.batch || student.assigned_batch || 'General Batch',
+                centre_name: student.centre || 'Main Centre'
+            };
+
+            await printOrSaveReport({
+                test,
+                data: perfData,
+                user: userObj,
+                report: reportObj,
+                sections: sectionsList,
+                filter: 'all'
+            });
+        } catch (err) {
+            console.error("Failed to download student report:", err);
+            alert("Failed to generate student report PDF. Please try again.");
+        } finally {
+            setDownloadingEnrollment(null);
+        }
+    };
 
     const handleExport = () => {
         if (filteredStudents.length === 0) return;
@@ -456,11 +533,33 @@ const TestResultStudents = ({ test, onBack }) => {
                                     </td>
                                     <td className={`py-6 px-6 text-center text-xs font-bold ${isDarkMode ? 'text-slate-500 opacity-40' : 'text-slate-700 opacity-90'}`}>{student.totalTime}</td>
                                     <td className="py-6 px-6 text-right pr-10">
-                                        <button
-                                            onClick={() => setSelectedStudent(student)}
-                                            className={`px-6 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest border-2 transition-all active:scale-95 ${isDarkMode ? 'border-white/10 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500' : 'border-blue-700 text-blue-700 hover:bg-blue-700 hover:text-white'}`}>
-                                            Details
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => setSelectedStudent(student)}
+                                                className={`px-4 py-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest border transition-all active:scale-95 ${isDarkMode ? 'border-white/10 text-blue-400 hover:bg-blue-500/10 hover:border-blue-500' : 'border-blue-700 text-blue-700 hover:bg-blue-50 hover:border-blue-700'}`}
+                                                title="View Detailed Student Performance"
+                                            >
+                                                Details
+                                            </button>
+                                            <button
+                                                onClick={() => handleDownloadStudentReport(student)}
+                                                disabled={downloadingEnrollment === student.enrollment}
+                                                className={`p-2 rounded-[5px] text-[10px] font-black uppercase tracking-widest border transition-all active:scale-95 flex items-center justify-center ${
+                                                    downloadingEnrollment === student.enrollment
+                                                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-wait'
+                                                        : isDarkMode
+                                                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                                                            : 'border-emerald-600 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                                }`}
+                                                title="Download Performance Analysis Report (PDF)"
+                                            >
+                                                {downloadingEnrollment === student.enrollment ? (
+                                                    <Loader2 size={16} className="animate-spin text-emerald-600" />
+                                                ) : (
+                                                    <Download size={16} />
+                                                )}
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
