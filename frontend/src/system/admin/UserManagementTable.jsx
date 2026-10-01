@@ -89,6 +89,15 @@ const UserManagementTable = ({
                                         {(admin.first_name || admin.last_name) && (
                                             <span className="text-[10px] font-bold opacity-40">@{admin.username}</span>
                                         )}
+                                        {Array.isArray(admin.assigned_centres) && admin.assigned_centres.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1 max-w-[200px]">
+                                                {admin.assigned_centres.map((c, idx) => (
+                                                    <span key={idx} className="px-1.5 py-0.2 text-[8px] font-bold rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                                        {typeof c === 'object' ? (c.code || c.name) : c}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </td>

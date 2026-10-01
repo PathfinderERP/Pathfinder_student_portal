@@ -275,23 +275,74 @@ const AssignDoubt = () => {
         { id: 'Rejected', label: 'REJECTED DOUBTS' }
     ];
 
+    const isSuperAdmin = user?.user_type === 'superadmin';
+
+    // Granular Permissions for Doubt Management -> Internal Portal
+    const userPerms = React.useMemo(() => {
+        if (isSuperAdmin) return { view: true, create: true, edit: true, delete: true };
+        let perms = user?.permissions;
+        if (typeof perms === 'string') {
+            try { perms = JSON.parse(perms); } catch (e) { perms = {}; }
+        }
+        const dPerms = perms?.doubt_mgmt?.assign_doubt || perms?.doubt_mgmt || {};
+        return {
+            view: dPerms.view === true || dPerms === true,
+            create: dPerms.create === true,
+            edit: dPerms.edit === true,
+            delete: dPerms.delete === true
+        };
+    }, [user, isSuperAdmin]);
+
+    const canEdit = isSuperAdmin || userPerms.edit || userPerms.create;
+    const canDelete = isSuperAdmin || userPerms.delete;
+
+    // Scoped centres for branch admins/staff
+    const userAssignedCentres = React.useMemo(() => {
+        if (isSuperAdmin) return [];
+        const assigned = user?.assigned_centres || user?.centres || [];
+        if (!Array.isArray(assigned)) return [];
+        return assigned.map(c => typeof c === 'object' ? (c.name || c.code || '') : c).map(s => s.trim().toLowerCase()).filter(Boolean);
+    }, [user, isSuperAdmin]);
+
     const filteredDoubts = doubts
-        .filter(d =>
-            (d.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                d.subject.toLowerCase().includes(searchQuery.toLowerCase())) &&
-            (activeTab === 'Solve' ? d.status === 'Resolved' : d.status === activeTab) &&
-            (selectedSubjects.length === 0 || selectedSubjects.some(s => s.value === d.subject)) &&
-            (selectedCenters.length === 0 || selectedCenters.some(c => c.value === d.centreName)) &&
-            (selectedClasses.length === 0 || selectedClasses.some(c => c.value === d.cleanClass)) &&
-            (selectedExamTags.length === 0 || selectedExamTags.some(t => t.value === d.examTag)) &&
-            (!selectedDate || (() => {
+        .filter(d => {
+            const matchesSearch = !searchQuery.trim() || 
+                d.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                d.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (d.admissionNumber && d.admissionNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (d.studentId && d.studentId.toLowerCase().includes(searchQuery.toLowerCase()));
+
+            const matchesStatus = activeTab === 'Solve' ? d.status === 'Resolved' : d.status === activeTab;
+            const matchesSubject = selectedSubjects.length === 0 || selectedSubjects.some(s => s.value === d.subject);
+
+            // Flexible centre matching (case-insensitive, partial, code/name)
+            const dCentre = (d.centreName || '').trim().toLowerCase();
+            const dCode = (d.centreCode || '').trim().toLowerCase();
+
+            // Branch centre allocation restriction
+            const matchesAssignedCentres = userAssignedCentres.length === 0 || userAssignedCentres.some(ac =>
+                ac === dCentre || ac === dCode || (dCentre && dCentre.includes(ac)) || (ac && ac.includes(dCentre))
+            );
+
+            // Dropdown filter selection
+            const matchesSelectedCenters = selectedCenters.length === 0 || selectedCenters.some(c => {
+                const cVal = (c.value || c.label || '').trim().toLowerCase();
+                return cVal === dCentre || cVal === dCode || (dCentre && (dCentre.includes(cVal) || cVal.includes(dCentre))) || (dCode && (dCode.includes(cVal) || cVal.includes(dCode)));
+            });
+
+            const matchesClass = selectedClasses.length === 0 || selectedClasses.some(c => c.value === d.cleanClass);
+            const matchesExamTag = selectedExamTags.length === 0 || selectedExamTags.some(t => t.value === d.examTag);
+
+            const matchesDate = !selectedDate || (() => {
                 if (!(d.rawDate instanceof Date) || isNaN(d.rawDate)) return false;
                 const yyyy = d.rawDate.getFullYear();
                 const mm = String(d.rawDate.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.rawDate.getDate()).padStart(2, '0');
                 return `${yyyy}-${mm}-${dd}` === selectedDate;
-            })())
-        )
+            })();
+
+            return matchesSearch && matchesStatus && matchesSubject && matchesAssignedCentres && matchesSelectedCenters && matchesClass && matchesExamTag && matchesDate;
+        })
         .sort((a, b) => {
             const timeA = a.rawDate instanceof Date && !isNaN(a.rawDate) ? a.rawDate.getTime() : 0;
             const timeB = b.rawDate instanceof Date && !isNaN(b.rawDate) ? b.rawDate.getTime() : 0;
@@ -304,8 +355,39 @@ const AssignDoubt = () => {
             return sortVal === 'newest' ? b.id - a.id : a.id - b.id;
         });
 
+    const [allMasterCentres, setAllMasterCentres] = useState([]);
+
+    // Fetch ERP master centres
+    useEffect(() => {
+        const fetchMasterCentres = async () => {
+            try {
+                const apiUrl = getApiUrl();
+                const activeToken = token || localStorage.getItem('auth_token');
+                if (!activeToken) return;
+                const response = await axios.get(`${apiUrl}/api/admin/erp-centres/`, {
+                    headers: { 'Authorization': `Bearer ${activeToken}` }
+                });
+                setAllMasterCentres(response.data || []);
+            } catch (error) {
+                console.error("Failed to fetch ERP master centres:", error);
+            }
+        };
+        fetchMasterCentres();
+    }, [getApiUrl, token]);
+
     const subjectOptions = [...new Set(doubts.map(d => d.subject))].filter(Boolean).sort().map(s => ({ value: s, label: s }));
-    const centerOptions = [...new Set(doubts.map(d => d.centreName))].filter(Boolean).sort().map(c => ({ value: c, label: c }));
+    const centerOptions = React.useMemo(() => {
+        const set = new Set();
+        (allMasterCentres || []).forEach(c => {
+            const name = typeof c === 'object' ? (c.name || c.centre_name || '') : c;
+            if (name && name !== 'N/A') set.add(name.trim());
+        });
+        doubts.forEach(d => {
+            const c = (d.centreName || '').trim();
+            if (c && c !== 'N/A') set.add(c);
+        });
+        return Array.from(set).sort().map(c => ({ value: c, label: c }));
+    }, [allMasterCentres, doubts]);
     const classOptions = [...new Set(doubts.map(d => d.cleanClass))].filter(c => c && c !== 'N/A').sort((a, b) => {
         const numA = parseInt(a, 10);
         const numB = parseInt(b, 10);
@@ -544,7 +626,7 @@ const AssignDoubt = () => {
                     {/* Filters Row */}
                     <div className="flex flex-wrap gap-4 items-center relative w-full">
                         {/* Bulk Action Overlay */}
-                        {selectedDoubtIds.length > 0 && (
+                        {selectedDoubtIds.length > 0 && canEdit && (
                             <div className={`absolute inset-0 z-10 flex items-center justify-between px-6 rounded-[5px] animate-in slide-in-from-top-4 duration-300 ${isDarkMode ? 'bg-orange-500/20 backdrop-blur-md border border-orange-500/30' : 'bg-orange-50 border border-orange-200'}`}>
                                 <div className="flex items-center gap-4">
                                     <span className="text-sm font-black uppercase tracking-widest text-orange-500">
@@ -624,7 +706,7 @@ const AssignDoubt = () => {
                             </div>
 
                             {/* Exam Tag Filter */}
-                            <div className="w-48 shrink-0">
+                            <div className="w-44 shrink-0">
                                 <Select
                                     isMulti
                                     options={examTagOptions}
@@ -690,11 +772,13 @@ const AssignDoubt = () => {
                             <tr className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-white/5 text-slate-500' : 'bg-orange-50 text-orange-900/50'}`}>
                                 {activeTab === 'Assign' ? (
                                     <>
-                                        <th className="py-4 px-2 text-center w-12">
-                                            <button onClick={toggleSelectAll} className="text-slate-400 hover:text-orange-500 transition-colors">
-                                                {selectedDoubtIds.length === filteredDoubts.length && filteredDoubts.length > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
-                                            </button>
-                                        </th>
+                                        {canEdit && (
+                                            <th className="py-4 px-2 text-center w-12">
+                                                <button onClick={toggleSelectAll} className="text-slate-400 hover:text-orange-500 transition-colors">
+                                                    {selectedDoubtIds.length === filteredDoubts.length && filteredDoubts.length > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                </button>
+                                            </th>
+                                        )}
                                         <th className="py-4 px-2 text-center">Doubt No.</th>
                                         <th className="py-4 px-2 text-center">Student Name</th>
                                         <th className="py-4 px-2 text-center">Class</th>
@@ -705,7 +789,7 @@ const AssignDoubt = () => {
                                         <th className="py-4 px-2 text-center">Assign Date</th>
                                         <th className="py-4 px-2 text-center">Time Pending</th>
                                         <th className="py-4 px-2 text-center">Show Doubt</th>
-                                        <th className="py-4 px-2 text-center">Action</th>
+                                        {canEdit && <th className="py-4 px-2 text-center">Action</th>}
                                     </>
                                 ) : activeTab === 'Solve' ? (
                                     <>
@@ -730,15 +814,17 @@ const AssignDoubt = () => {
                                         <th className="py-4 px-2 text-center">Subject</th>
                                         <th className="py-4 px-2 text-center">Rejected By</th>
                                         <th className="py-4 px-2 text-center">Show Doubt</th>
-                                        <th className="py-4 px-2 text-center">Action</th>
+                                        {canEdit && <th className="py-4 px-2 text-center">Action</th>}
                                     </>
                                 ) : (
                                     <>
-                                        <th className="py-4 px-2 text-center w-12">
-                                            <button onClick={toggleSelectAll} className="text-slate-400 hover:text-orange-500 transition-colors">
-                                                {selectedDoubtIds.length === filteredDoubts.length && filteredDoubts.length > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
-                                            </button>
-                                        </th>
+                                        {canEdit && (
+                                            <th className="py-4 px-2 text-center w-12">
+                                                <button onClick={toggleSelectAll} className="text-slate-400 hover:text-orange-500 transition-colors">
+                                                    {selectedDoubtIds.length === filteredDoubts.length && filteredDoubts.length > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                </button>
+                                            </th>
+                                        )}
                                         <th className="py-4 px-2 text-center">Doubt No.</th>
                                         <th className="py-4 px-2">Student Name</th>
                                         <th className="py-4 px-2">Class</th>
@@ -747,8 +833,12 @@ const AssignDoubt = () => {
                                         <th className="py-4 px-2">Subject</th>
                                         <th className="py-4 px-2">Date</th>
                                         <th className="py-4 px-2 text-center">Show Doubt</th>
-                                        <th className="py-4 px-2 text-center">Assign To</th>
-                                        <th className="py-4 px-2 text-center">Reject Doubt</th>
+                                        {canEdit && (
+                                            <>
+                                                <th className="py-4 px-2 text-center">Assign To</th>
+                                                <th className="py-4 px-2 text-center">Reject Doubt</th>
+                                            </>
+                                        )}
                                     </>
                                 )}
                             </tr>
@@ -757,7 +847,9 @@ const AssignDoubt = () => {
                             {loading ? (
                                 Array(5).fill(0).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td className="py-4 px-2 text-center"><div className="h-4 w-4 mx-auto rounded bg-slate-100 dark:bg-white/5"></div></td>
+                                        {canEdit && activeTab !== 'Solve' && activeTab !== 'Rejected' && (
+                                            <td className="py-4 px-2 text-center"><div className="h-4 w-4 mx-auto rounded bg-slate-100 dark:bg-white/5"></div></td>
+                                        )}
                                         <td className="py-4 px-2 text-center">
                                             <div className={`h-4 w-4 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
@@ -767,15 +859,12 @@ const AssignDoubt = () => {
                                                 <div className={`h-2.5 w-16 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                             </div>
                                         </td>
-                                        {/* Class Loader */}
                                         <td className="py-4 px-2">
                                             <div className={`h-4 w-12 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
-                                        {/* Centre Loader */}
                                         <td className="py-4 px-2">
                                             <div className={`h-4 w-20 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
-                                        {/* Exam Tag Loader */}
                                         <td className="py-4 px-2">
                                             <div className={`h-4 w-24 rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
@@ -788,15 +877,18 @@ const AssignDoubt = () => {
                                         <td className="py-4 px-2 text-center">
                                             <div className={`h-9 w-24 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
                                         </td>
-                                        <td className="py-4 px-2 text-center">
-                                            <div className={`h-9 w-28 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
-                                        <td className="py-4 px-2 text-center">
-                                            <div className={`h-9 w-28 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
-                                        <td className="py-4 px-2 text-center">
-                                            <div className={`h-9 w-28 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
-                                        </td>
+                                        {canEdit && (
+                                            <>
+                                                <td className="py-4 px-2 text-center">
+                                                    <div className={`h-9 w-28 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                </td>
+                                                {activeTab === 'Unassigned' && (
+                                                    <td className="py-4 px-2 text-center">
+                                                        <div className={`h-9 w-28 mx-auto rounded-[5px] ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                                                    </td>
+                                                )}
+                                            </>
+                                        )}
                                     </tr>
                                 ))
                             ) : filteredDoubts.length > 0 ? (
@@ -806,7 +898,7 @@ const AssignDoubt = () => {
                                     <tr key={doubt.id} className={`group transition-all ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         {activeTab === 'Assign' || activeTab === 'Solve' ? (
                                             <>
-                                                {activeTab === 'Assign' && (
+                                                {activeTab === 'Assign' && canEdit && (
                                                     <td className="py-4 px-2 text-center">
                                                         <button 
                                                             onClick={() => toggleSelectDoubt(doubt.id)}
@@ -880,13 +972,15 @@ const AssignDoubt = () => {
                                                                 <span>View</span>
                                                             </button>
                                                         </td>
-                                                        <td className="py-4 px-2 text-center">
-                                                            <button 
-                                                                onClick={() => handleAssignClick(doubt)}
-                                                                className="px-4 py-2 rounded-[5px] bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-orange-600/20 hover:bg-orange-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 mx-auto min-w-[100px]">
-                                                                <span>Reassign</span>
-                                                            </button>
-                                                        </td>
+                                                        {canEdit && (
+                                                            <td className="py-4 px-2 text-center">
+                                                                <button 
+                                                                    onClick={() => handleAssignClick(doubt)}
+                                                                    className="px-4 py-2 rounded-[5px] bg-orange-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-orange-600/20 hover:bg-orange-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 mx-auto min-w-[100px]">
+                                                                    <span>Reassign</span>
+                                                                </button>
+                                                            </td>
+                                                        )}
                                                     </>
                                                 )}
                                                 {activeTab === 'Solve' && (
@@ -945,24 +1039,28 @@ const AssignDoubt = () => {
                                                         <span>Show Doubt</span>
                                                     </button>
                                                 </td>
-                                                <td className="py-4 px-2 text-center">
-                                                    <button
-                                                        onClick={() => handleRestoreDoubt(doubt.id)}
-                                                        className="px-4 py-3 rounded-[5px] bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
-                                                        <RotateCcw size={14} strokeWidth={3} />
-                                                        <span>Redo / Restore</span>
-                                                    </button>
-                                                </td>
+                                                {canEdit && (
+                                                    <td className="py-4 px-2 text-center">
+                                                        <button
+                                                            onClick={() => handleRestoreDoubt(doubt.id)}
+                                                            className="px-4 py-3 rounded-[5px] bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
+                                                            <RotateCcw size={14} strokeWidth={3} />
+                                                            <span>Redo / Restore</span>
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </>
                                         ) : (
                                             <>
-                                                <td className="py-4 px-2 text-center">
-                                                    <button 
-                                                        onClick={() => toggleSelectDoubt(doubt.id)}
-                                                        className={`transition-colors ${selectedDoubtIds.includes(doubt.id) ? 'text-orange-500' : 'text-slate-400 hover:text-slate-300'}`}>
-                                                        {selectedDoubtIds.includes(doubt.id) ? <CheckSquare size={18} /> : <Square size={18} />}
-                                                    </button>
-                                                </td>
+                                                {canEdit && (
+                                                    <td className="py-4 px-2 text-center">
+                                                        <button 
+                                                            onClick={() => toggleSelectDoubt(doubt.id)}
+                                                            className={`transition-colors ${selectedDoubtIds.includes(doubt.id) ? 'text-orange-500' : 'text-slate-400 hover:text-slate-300'}`}>
+                                                            {selectedDoubtIds.includes(doubt.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                        </button>
+                                                    </td>
+                                                )}
                                                 <td className="py-4 px-2 text-center">
                                                     <span className={`text-sm font-black ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                                                         {doubt.id}
@@ -1010,30 +1108,34 @@ const AssignDoubt = () => {
                                                         <span>Show Doubt</span>
                                                     </button>
                                                 </td>
-                                                <td className="py-4 px-2 text-center">
-                                                    <button
-                                                        onClick={() => handleAssignClick(doubt)}
-                                                        className="px-4 py-3 rounded-[5px] bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]"
-                                                    >
-                                                        <UserPlus size={14} strokeWidth={3} />
-                                                        <span>Assign To</span>
-                                                    </button>
-                                                </td>
-                                                <td className="py-4 px-2 text-center">
-                                                    <button
-                                                        onClick={() => handleRejectDoubt(doubt)}
-                                                        className="px-4 py-3 rounded-[5px] bg-red-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-500/20 hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
-                                                        <X size={14} strokeWidth={3} />
-                                                        <span>Reject</span>
-                                                    </button>
-                                                </td>
+                                                {canEdit && (
+                                                    <>
+                                                        <td className="py-4 px-2 text-center">
+                                                            <button
+                                                                onClick={() => handleAssignClick(doubt)}
+                                                                className="px-4 py-3 rounded-[5px] bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]"
+                                                            >
+                                                                <UserPlus size={14} strokeWidth={3} />
+                                                                <span>Assign To</span>
+                                                            </button>
+                                                        </td>
+                                                        <td className="py-4 px-2 text-center">
+                                                            <button
+                                                                onClick={() => handleRejectDoubt(doubt)}
+                                                                className="px-4 py-3 rounded-[5px] bg-red-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-500/20 hover:bg-red-600 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto min-w-[120px]">
+                                                                <X size={14} strokeWidth={3} />
+                                                                <span>Reject</span>
+                                                            </button>
+                                                        </td>
+                                                    </>
+                                                )}
                                             </>
                                         )}
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={activeTab === 'Assign' ? 6 : activeTab === 'Solve' ? 7 : activeTab === 'Rejected' ? 9 : 10} className="py-20 text-center">
+                                    <td colSpan={15} className="py-20 text-center">
                                         <div className="flex flex-col items-center justify-center gap-4 opacity-50">
                                             <AlertCircle size={48} className={isDarkMode ? 'text-slate-700' : 'text-slate-300'} />
                                             <p className="font-bold text-lg">No doubts found</p>

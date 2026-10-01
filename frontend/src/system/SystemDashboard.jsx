@@ -104,9 +104,10 @@ const SystemDashboard = () => {
     const [erpTeachers, setErpTeachers] = useState([]);
     const [erpCentres, setErpCentres] = useState([]);
     const [isERPLoading, setIsERPLoading] = useState(false);
+    const [erpLoaded, setErpLoaded] = useState(false);
     const [dashboardStats, setDashboardStats] = useState({
-        sections: { total: 0, thisMonth: 0 },
-        questions: { total: 0, thisMonth: 0 }
+        sections: null,
+        questions: null
     });
     const [unassignedDoubtCount, setUnassignedDoubtCount] = useState(0);
     const [inProgressReferralCount, setInProgressReferralCount] = useState(0);
@@ -116,6 +117,44 @@ const SystemDashboard = () => {
     const [previousTab, setPreviousTab] = useState(null);
 
     const isSuperAdmin = user?.user_type === 'superadmin';
+
+    // Filter students and centres by user assigned centres if user is not superadmin
+    const userAssignedCentres = useMemo(() => {
+        if (!user) return [];
+        const assigned = user.assigned_centres || user.centres || [];
+        if (!Array.isArray(assigned)) return [];
+        return assigned.map(c => {
+            if (typeof c === 'string') return c.trim().toLowerCase();
+            return (c.name || c.code || c.id || '').trim().toLowerCase();
+        }).filter(Boolean);
+    }, [user]);
+
+    const scopedCentres = useMemo(() => {
+        if (isSuperAdmin || userAssignedCentres.length === 0) return erpCentres;
+        return erpCentres.filter(c => {
+            const cName = (c.name || c.centre_name || '').trim().toLowerCase();
+            const cCode = (c.code || c.enterCode || c.id || '').trim().toLowerCase();
+            return userAssignedCentres.some(ac => 
+                ac === cName || ac === cCode || 
+                (cName && (cName.includes(ac) || ac.includes(cName))) ||
+                (cCode && (cCode.includes(ac) || ac.includes(cCode)))
+            );
+        });
+    }, [erpCentres, isSuperAdmin, userAssignedCentres]);
+
+    const scopedStudents = useMemo(() => {
+        if (isSuperAdmin || userAssignedCentres.length === 0) return erpStudents;
+        return erpStudents.filter(std => {
+            const stdCentre = (std.centre || std.centre_name || std.centreName || std.center || '').trim().toLowerCase();
+            const stdCentreCode = (std.centreCode || std.centre_code || '').trim().toLowerCase();
+            return userAssignedCentres.some(ac => 
+                ac === stdCentre || 
+                ac === stdCentreCode || 
+                (stdCentre && (stdCentre.includes(ac) || ac.includes(stdCentre))) ||
+                (stdCentreCode && (stdCentreCode.includes(ac) || ac.includes(stdCentreCode)))
+            );
+        });
+    }, [erpStudents, isSuperAdmin, userAssignedCentres]);
 
     // 1. User Management Actions
     const handleToggleStatus = async (userObj) => {
@@ -361,6 +400,7 @@ const SystemDashboard = () => {
             setErpStudents(students);
             setErpCentres(uniqueCentres);
             setErpTeachers(teachers);
+            setErpLoaded(true);
             console.log(`✅ ERP Sync: ${students.length} students, ${centres.length} centres, ${teachers.length} teachers`);
         } catch (err) {
             console.error("❌ ERP Sync Failed:", err);
@@ -370,6 +410,7 @@ const SystemDashboard = () => {
             }
         } finally {
             setIsERPLoading(false);
+            setErpLoaded(true);
         }
     }, [token, getApiUrl, authLoading, fetchDashboardStats, fetchUnassignedDoubtCount]);
 
@@ -399,22 +440,47 @@ const SystemDashboard = () => {
     }, [activeTab, fetchUnassignedDoubtCount, fetchInProgressReferralCount]);
 
     // 3. Permissions & Sidebar
-    const hasPermission = (moduleId, subModuleId = null) => {
+    const hasPermission = useCallback((moduleId, subModuleId = null) => {
         if (isSuperAdmin) return true;
         let perms = user?.permissions;
-        if (typeof perms === 'string') try { perms = JSON.parse(perms); } catch (e) { return false; }
-        if (!perms || !perms[moduleId]) return false;
-        if (subModuleId) return perms[moduleId][subModuleId]?.view === true;
-        if (perms[moduleId].view === true) return true;
-        if (typeof perms[moduleId] === 'object') return Object.values(perms[moduleId]).some(sub => sub && sub.view === true);
+        if (typeof perms === 'string') {
+            try { perms = JSON.parse(perms); } catch (e) { return false; }
+        }
+        if (!perms) return false;
+
+        // Cross-module resolution for section_mgmt & admin_master_data
+        if (moduleId === 'section_mgmt') {
+            if (perms.section_mgmt?.view === true || perms.section_mgmt === true) return true;
+            if (perms.admin_mgmt?.admin_master_data?.view === true) return true;
+        }
+        if (moduleId === 'admin_mgmt' && subModuleId === 'admin_master_data') {
+            if (perms.admin_mgmt?.admin_master_data?.view === true) return true;
+            if (perms.section_mgmt?.view === true || perms.section_mgmt === true) return true;
+        }
+
+        const mod = perms[moduleId];
+        if (!mod) return false;
+
+        if (subModuleId) {
+            if (typeof mod === 'object') {
+                return mod[subModuleId]?.view === true || mod[subModuleId] === true;
+            }
+            return false;
+        }
+
+        if (mod.view === true || mod === true) return true;
+        if (typeof mod === 'object') {
+            return Object.values(mod).some(sub => sub === true || (sub && sub.view === true));
+        }
         return false;
-    };
+    }, [isSuperAdmin, user?.permissions]);
 
     const sidebarItems = useMemo(() => [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', active: activeTab === 'Dashboard', onClick: () => setActiveTab('Dashboard') },
         { id: 'centre_mgmt', icon: MapPin, label: 'Centre Management', active: activeTab === 'Centre Management', onClick: () => setActiveTab('Centre Management') },
+        { id: 'section_mgmt', icon: Layers, label: 'Section Management', active: activeTab === 'Section Management' || (activeTab === 'Admin Master Data' && masterSubTab === 'Section Management'), onClick: () => { setActiveTab('Admin Master Data'); setMasterSubTab('Section Management'); } },
         {
-            id: 'test_mgmt', icon: FileText, label: 'Test Management', active: activeTab.startsWith('Test'),
+            id: 'test_mgmt', icon: FileText, label: 'Test Management', active: activeTab.startsWith('Test') || activeTab === 'Chapter Test Results' || activeTab === 'Psychometric Test' || activeTab === 'Student Reviews' || activeTab === 'Merge Test Result',
             subItems: [
                 { id: 'test_create', label: 'Test Create', active: activeTab === 'Test Create', onClick: () => setActiveTab('Test Create') },
                 { id: 'test_allotment', label: 'Test Allotment', active: activeTab === 'Test Allotment', onClick: () => setActiveTab('Test Allotment') },
@@ -553,14 +619,26 @@ const SystemDashboard = () => {
                         isDarkMode={isDarkMode}
                         syncERP={syncERP}
                         isERPLoading={isERPLoading}
-                        erpStudentsCount={erpStudents.length}
-                        erpCentresCount={erpCentres.length}
+                        erpLoaded={erpLoaded}
+                        erpStudentsCount={scopedStudents.length}
+                        erpCentresCount={scopedCentres.length}
                         dashboardStats={dashboardStats}
                         setActiveTab={setActiveTab}
+                        currentUser={user}
+                        userAssignedCentres={userAssignedCentres}
+                        hasPermission={hasPermission}
                         onNavigateMaster={(subTab) => {
                             setActiveTab('Admin Master Data');
                             setMasterSubTab(subTab);
                         }}
+                    />
+                );
+            case 'Section Management':
+                return (
+                    <MasterDataManagement
+                        activeSubTab="Section Management"
+                        setActiveSubTab={setMasterSubTab}
+                        onNavigate={setActiveTab}
                     />
                 );
             case 'Create User':
@@ -602,7 +680,7 @@ const SystemDashboard = () => {
                     </div>
                 );
             case 'Admin Student':
-                return <StudentRegistry studentsData={erpStudents} isERPLoading={isERPLoading} />;
+                return <StudentRegistry studentsData={scopedStudents} isERPLoading={isERPLoading} />;
             case 'Admin Teacher':
                 return <TeacherRegistry teachersData={erpTeachers} isERPLoading={isERPLoading} />;
             case 'Admin Parent':
@@ -612,7 +690,7 @@ const SystemDashboard = () => {
             case 'Head Office Admin':
                 return <HeadOfficeAdminManagement />;
             case 'Centre Management':
-                return <CentreRegistry centresData={erpCentres} isERPLoading={isERPLoading} />;
+                return <CentreRegistry centresData={scopedCentres} isERPLoading={isERPLoading} />;
             case 'Admin Master Data':
                 return (
                     <MasterDataManagement
@@ -680,7 +758,7 @@ const SystemDashboard = () => {
             case 'Grievance Management':
                 return <GrievanceManagement />;
             case 'Student Activity':
-                return <StudentActivity studentsData={erpStudents} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(true)} />;
+                return <StudentActivity studentsData={scopedStudents} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(true)} />;
             case 'Teacher Activity':
                 return <TeacherActivity teachersData={erpTeachers} isERPLoading={isERPLoading} isDarkMode={isDarkMode} onRefresh={() => syncERP(false)} />;
             case 'Teacher Referral':

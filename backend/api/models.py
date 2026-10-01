@@ -43,6 +43,7 @@ class CustomUser(AbstractUser):
     # Centre identity
     centre_code = models.CharField(max_length=50, null=True, blank=True)
     centre_name = models.CharField(max_length=255, null=True, blank=True)
+    assigned_centres = SafeJSONField(default=list, blank=True, help_text="List of assigned centre IDs or codes for admin/staff")
     # Academic Context
     session = models.ForeignKey('master_data.Session', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
     class_level = models.ForeignKey('master_data.ClassLevel', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')

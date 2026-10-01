@@ -16,12 +16,40 @@ import { useTheme } from '../../context/ThemeContext';
 import toast from 'react-hot-toast';
 
 const GrievanceManagement = () => {
-    const { token, getApiUrl } = useAuth();
+    const { token, getApiUrl, user } = useAuth();
     const { isDarkMode } = useTheme();
     const [grievances, setGrievances] = useState([]);
     const [teachers, setTeachers] = useState([]);
     const [centres, setCentres] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    const isSuperAdmin = user?.user_type === 'superadmin';
+
+    // Granular Permissions for Grievance Management
+    const userPerms = useMemo(() => {
+        if (isSuperAdmin) return { view: true, create: true, edit: true, delete: true };
+        let perms = user?.permissions;
+        if (typeof perms === 'string') {
+            try { perms = JSON.parse(perms); } catch (e) { perms = {}; }
+        }
+        const gPerms = perms?.grievance_mgmt || {};
+        return {
+            view: gPerms.view === true || gPerms === true,
+            create: gPerms.create === true,
+            edit: gPerms.edit === true,
+            delete: gPerms.delete === true
+        };
+    }, [user, isSuperAdmin]);
+
+    const canEdit = isSuperAdmin || userPerms.edit || userPerms.create;
+    const canDelete = isSuperAdmin || userPerms.delete;
+
+    const userAssignedCentres = useMemo(() => {
+        if (isSuperAdmin) return [];
+        const assigned = user?.assigned_centres || user?.centres || [];
+        if (!Array.isArray(assigned)) return [];
+        return assigned.map(c => typeof c === 'object' ? (c.name || c.code || '') : c).map(s => s.trim().toLowerCase()).filter(Boolean);
+    }, [user, isSuperAdmin]);
     
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
@@ -99,7 +127,7 @@ const GrievanceManagement = () => {
     const fetchCentres = async () => {
         try {
             const apiUrl = getApiUrl();
-            const response = await axios.get(`${apiUrl}/admin/erp-centres/`, {
+            const response = await axios.get(`${apiUrl}/api/admin/erp-centres/`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             setCentres(response.data || []);
@@ -109,6 +137,10 @@ const GrievanceManagement = () => {
     };
 
     const handleSendReply = async () => {
+        if (!canEdit) {
+            toast.error("You do not have permission to modify grievances.");
+            return;
+        }
         if (!replyText.trim() || !selectedGrievance) {
             toast.error("Please enter a reply description");
             return;
@@ -139,6 +171,7 @@ const GrievanceManagement = () => {
     };
 
     const openReplyModal = (grievance) => {
+        if (!canEdit) return;
         setSelectedGrievance(grievance);
         setReplyText(grievance.solution || '');
         setReplyStatus(grievance.status === 'Resolved' ? 'Resolved' : 'Resolved');
@@ -146,6 +179,10 @@ const GrievanceManagement = () => {
     };
 
     const handleStatusUpdate = async (id, newStatus) => {
+        if (!canEdit) {
+            toast.error("You do not have permission to update grievance status.");
+            return;
+        }
         try {
             const apiUrl = getApiUrl();
             await axios.patch(`${apiUrl}/api/grievances/${id}/`, {
@@ -197,13 +234,27 @@ const GrievanceManagement = () => {
             const matchesStatus = statusFilter === 'All' || g.status === statusFilter;
             const matchesCategory = categoryFilter === 'All' || g.category === categoryFilter;
             const matchesPriority = priorityFilter === 'All' || g.priority === priorityFilter;
-            const matchesCentre = centreFilter === 'All' || g.centreName === centreFilter || g.centreCode === centreFilter;
+
+            const gCentre = (g.centreName || '').trim().toLowerCase();
+            const gCode = (g.centreCode || '').trim().toLowerCase();
+
+            // Branch centre allocation restriction
+            const matchesAssignedCentres = userAssignedCentres.length === 0 || userAssignedCentres.some(ac =>
+                (gCentre && (ac === gCentre || gCentre.includes(ac) || ac.includes(gCentre))) ||
+                (gCode && (ac === gCode || gCode.includes(ac) || ac.includes(gCode)))
+            );
+
+            const cFilter = (centreFilter || '').trim().toLowerCase();
+            const matchesCentre = centreFilter === 'All' || 
+                (gCentre && (gCentre === cFilter || gCentre.includes(cFilter) || cFilter.includes(gCentre))) ||
+                (gCode && (gCode === cFilter || gCode.includes(cFilter) || cFilter.includes(gCode)));
+
             const matchesMonth = monthFilter === 'All' || g.month === monthFilter;
             const matchesDate = !dateFilter || g.shortDate === new Date(dateFilter).toLocaleDateString();
             
-            return matchesSearch && matchesStatus && matchesCategory && matchesPriority && matchesCentre && matchesMonth && matchesDate;
+            return matchesSearch && matchesStatus && matchesCategory && matchesPriority && matchesAssignedCentres && matchesCentre && matchesMonth && matchesDate;
         });
-    }, [grievances, searchTerm, statusFilter, categoryFilter, priorityFilter, centreFilter, monthFilter, dateFilter]);
+    }, [grievances, searchTerm, statusFilter, categoryFilter, priorityFilter, centreFilter, monthFilter, dateFilter, userAssignedCentres]);
 
     const totalPages = Math.ceil(filteredGrievances.length / itemsPerPage) || 1;
 
@@ -609,13 +660,15 @@ const GrievanceManagement = () => {
                                                         >
                                                             <Eye size={15} strokeWidth={2.5} />
                                                         </button>
-                                                        <button
-                                                            onClick={() => openReplyModal(grievance)}
-                                                            className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
-                                                        >
-                                                            <MessageSquare size={12} />
-                                                            {grievance.solution ? 'Edit' : 'Reply'}
-                                                        </button>
+                                                        {canEdit && (
+                                                            <button
+                                                                onClick={() => openReplyModal(grievance)}
+                                                                className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-[10px] font-black uppercase tracking-wider shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                                                            >
+                                                                <MessageSquare size={12} />
+                                                                {grievance.solution ? 'Edit' : 'Reply'}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -722,13 +775,15 @@ const GrievanceManagement = () => {
                                             >
                                                 <Eye size={18} strokeWidth={2.5} />
                                             </button>
-                                            <button 
-                                                onClick={() => openReplyModal(grievance)}
-                                                className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-xs font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center gap-2"
-                                            >
-                                                <MessageSquare size={14} />
-                                                {grievance.solution ? 'Edit Reply' : 'Reply'}
-                                            </button>
+                                            {canEdit && (
+                                                <button 
+                                                    onClick={() => openReplyModal(grievance)}
+                                                    className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] text-xs font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center gap-2"
+                                                >
+                                                    <MessageSquare size={14} />
+                                                    {grievance.solution ? 'Edit Reply' : 'Reply'}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -919,32 +974,34 @@ const GrievanceManagement = () => {
                                 </div>
                             )}
 
-                            <div className="flex gap-4 pt-4">
-                                <button 
-                                    onClick={() => {
-                                        setIsShowModalOpen(false);
-                                        openReplyModal(selectedGrievance);
-                                    }}
-                                    className="flex-1 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <MessageSquare size={16} />
-                                    {selectedGrievance.solution ? 'Edit Reply' : 'Reply to Student'}
-                                </button>
-                                {selectedGrievance.status !== 'Resolved' && (
+                            {canEdit && (
+                                <div className="flex gap-4 pt-4">
                                     <button 
-                                        onClick={() => handleStatusUpdate(selectedGrievance.id, 'Resolved')}
-                                        className="flex-1 py-4 bg-green-600 hover:bg-green-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-green-600/20 transition-all active:scale-95"
+                                        onClick={() => {
+                                            setIsShowModalOpen(false);
+                                            openReplyModal(selectedGrievance);
+                                        }}
+                                        className="flex-1 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                                     >
-                                        Mark Resolved
+                                        <MessageSquare size={16} />
+                                        {selectedGrievance.solution ? 'Edit Reply' : 'Reply to Student'}
                                     </button>
-                                )}
-                                <button 
-                                    onClick={() => handleStatusUpdate(selectedGrievance.id, 'Rejected')}
-                                    className={`py-4 px-6 border font-black uppercase tracking-[0.2em] text-xs rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'border-red-500/50 text-red-500 hover:bg-red-500/10' : 'border-red-200 text-red-500 hover:bg-red-50'}`}
-                                >
-                                    Reject Case
-                                </button>
-                            </div>
+                                    {selectedGrievance.status !== 'Resolved' && (
+                                        <button 
+                                            onClick={() => handleStatusUpdate(selectedGrievance.id, 'Resolved')}
+                                            className="flex-1 py-4 bg-green-600 hover:bg-green-700 text-white rounded-[5px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-green-600/20 transition-all active:scale-95"
+                                        >
+                                            Mark Resolved
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={() => handleStatusUpdate(selectedGrievance.id, 'Rejected')}
+                                        className={`py-4 px-6 border font-black uppercase tracking-[0.2em] text-xs rounded-[5px] transition-all active:scale-95 ${isDarkMode ? 'border-red-500/50 text-red-500 hover:bg-red-500/10' : 'border-red-200 text-red-500 hover:bg-red-50'}`}
+                                    >
+                                        Reject Case
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

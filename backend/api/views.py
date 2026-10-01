@@ -522,16 +522,21 @@ class DoubtViewSet(viewsets.ModelViewSet):
                     pass
             str_set.add(sid)
 
+        from django.db.models import Q
         users = list(
-            User.objects.filter(pk__in=oid_set | str_set)
-            .select_related('class_level', 'target_exam')
+            User.objects.filter(
+                Q(pk__in=oid_set | str_set) |
+                Q(username__in=str_set) |
+                Q(erp_student_id__in=str_set) |
+                Q(admission_number__in=str_set)
+            ).select_related('class_level', 'target_exam')
         )
 
         lookup = {}
         for u in users:
             for key in [str(u.pk), u.username, u.erp_student_id, u.admission_number]:
                 if key:
-                    lookup[key] = u
+                    lookup[str(key).strip()] = u
         return lookup
 
     def _format_doc(self, doc, user_lookup=None):

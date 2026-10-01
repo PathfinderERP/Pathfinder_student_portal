@@ -13,6 +13,23 @@ const ExternalPortal = () => {
     const { isDarkMode } = useTheme();
     const { getApiUrl, token, user } = useAuth();
 
+    const isSuperAdmin = user?.user_type === 'superadmin';
+    const userPerms = useMemo(() => {
+        if (isSuperAdmin) return { view: true, create: true, edit: true, delete: true };
+        let perms = user?.permissions;
+        if (typeof perms === 'string') {
+            try { perms = JSON.parse(perms); } catch (e) { perms = {}; }
+        }
+        const dPerms = perms?.doubt_mgmt?.external_portal || perms?.doubt_mgmt || {};
+        return {
+            view: dPerms.view === true || dPerms === true,
+            create: dPerms.create === true,
+            edit: dPerms.edit === true,
+            delete: dPerms.delete === true
+        };
+    }, [user, isSuperAdmin]);
+    const canEdit = isSuperAdmin || userPerms.edit || userPerms.create;
+
     const [activeTab, setActiveTab] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
@@ -726,15 +743,17 @@ const ExternalPortal = () => {
                                     isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-700'
                                 }`}
                             >
-                                Cancel
+                                {canEdit ? 'Cancel' : 'Close'}
                             </button>
-                            <button
-                                onClick={handleAssignOrResolve}
-                                className="px-5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-md shadow-cyan-500/20 flex items-center gap-1.5"
-                            >
-                                <Send className="w-3.5 h-3.5" />
-                                <span>{replyText.trim() ? 'Save & Dispatch Response' : 'Update Assignment'}</span>
-                            </button>
+                            {canEdit && (
+                                <button
+                                    onClick={handleAssignOrResolve}
+                                    className="px-5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-md shadow-cyan-500/20 flex items-center gap-1.5"
+                                >
+                                    <Send className="w-3.5 h-3.5" />
+                                    <span>{replyText.trim() ? 'Save & Dispatch Response' : 'Update Assignment'}</span>
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

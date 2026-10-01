@@ -12,6 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
     # Read-only human-readable labels derived from FK relationships
     class_level_name = serializers.SerializerMethodField()
     target_exam_name = serializers.SerializerMethodField()
+    assigned_centres = serializers.JSONField(required=False, allow_null=True)
     centres = serializers.SerializerMethodField()
 
     class Meta:
@@ -21,14 +22,18 @@ class UserSerializer(serializers.ModelSerializer):
             'first_name', 'last_name', 'employee_id', 'permissions',
             'is_active', 'date_joined', 'created_by_username',
             'exam_section', 'study_section', 'omr_code', 'rm_code',
-            'admission_number', 'centre_code', 'centre_name', 'centres',
+            'admission_number', 'centre_code', 'centre_name', 'assigned_centres', 'centres',
             'class_level', 'class_level_name',
             'target_exam', 'target_exam_name', 'exam_tag_name',
         ]
         read_only_fields = ['username', 'date_joined', 'created_by_username', 'admission_number']
 
     def get_centres(self, obj):
-        """Return array of assigned centres for faculty/teachers."""
+        """Return array of assigned centres for user (staff, admin, teacher)."""
+        assigned = getattr(obj, 'assigned_centres', None)
+        if assigned and isinstance(assigned, list) and len(assigned) > 0:
+            return assigned
+
         if obj.user_type in ['teacher', 'faculty']:
             try:
                 from .erp_views import _get_all_teachers_data_list
@@ -43,6 +48,10 @@ class UserSerializer(serializers.ModelSerializer):
                         return t.get('centres') or []
             except Exception:
                 pass
+
+        if getattr(obj, 'centre_code', None) or getattr(obj, 'centre_name', None):
+            return [{'id': obj.centre_code, 'code': obj.centre_code, 'name': obj.centre_name or obj.centre_code}]
+
         return []
 
     def get_class_level_name(self, obj):
@@ -157,10 +166,11 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    assigned_centres = serializers.JSONField(required=False, allow_null=True)
     
     class Meta:
         model = CustomUser
-        fields = ['username', 'email', 'password', 'user_type', 'first_name', 'last_name', 'permissions']
+        fields = ['username', 'email', 'password', 'user_type', 'first_name', 'last_name', 'permissions', 'assigned_centres']
         extra_kwargs = {
             'username': {'validators': []},  # Disable automatic unique validator to avoid Djongo recursion
         }
@@ -174,6 +184,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop('password')
         permissions_data = validated_data.pop('permissions', {})
+        assigned_centres_data = validated_data.pop('assigned_centres', [])
         
         # Use create_user to handle standard Django User setup
         user = CustomUser.objects.create_user(
@@ -185,6 +196,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
         
         # Set permissions separately to ensure they are handled correctly
         user.permissions = permissions_data
+        if isinstance(assigned_centres_data, list):
+            user.assigned_centres = assigned_centres_data
         
         # Set created_by_username from request context (storing email for better identification)
         request = self.context.get('request')
