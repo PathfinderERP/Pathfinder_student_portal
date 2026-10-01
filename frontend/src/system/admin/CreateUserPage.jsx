@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { permissionTabs, getSafePermissions } from '../constants';
+import { permissionTabs, getSafePermissions, getAllPermissions } from '../constants';
 
 const CreateUserPage = ({ onBack }) => {
     const { isDarkMode } = useTheme();
@@ -44,6 +44,20 @@ const CreateUserPage = ({ onBack }) => {
                 });
                 const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
                 setCentresList(list);
+                setFormData(prev => {
+                    if (prev.user_type === 'superadmin' && list.length > 0) {
+                        return {
+                            ...prev,
+                            assigned_centres: list.map(c => ({
+                                id: c.id || c._id || c.code,
+                                code: c.code || c.id,
+                                name: c.name || c.code
+                            })),
+                            permissions: getAllPermissions()
+                        };
+                    }
+                    return prev;
+                });
             } catch (err) {
                 console.error("Failed to fetch centres", err);
             } finally {
@@ -120,6 +134,27 @@ const CreateUserPage = ({ onBack }) => {
 
     const handleClearCentres = () => {
         setFormData(prev => ({ ...prev, assigned_centres: [] }));
+    };
+
+    const handleRoleChange = (newRole) => {
+        if (newRole === 'superadmin') {
+            const allObjs = centresList.map(c => ({
+                id: c.id || c._id || c.code,
+                code: c.code || c.id,
+                name: c.name || c.code
+            }));
+            setFormData(prev => ({
+                ...prev,
+                user_type: newRole,
+                assigned_centres: allObjs,
+                permissions: getAllPermissions()
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                user_type: newRole
+            }));
+        }
     };
 
     const handlePermissionChange = (tab, action, subTab = null) => {
@@ -296,7 +331,7 @@ const CreateUserPage = ({ onBack }) => {
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1">Role</label>
                                     <div className="relative">
-                                        <select value={formData.user_type} onChange={e => setFormData({ ...formData, user_type: e.target.value })}
+                                        <select value={formData.user_type} onChange={e => handleRoleChange(e.target.value)}
                                             style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                             className={`w-full p-4 pr-12 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 appearance-none 
                                                 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-900'} 

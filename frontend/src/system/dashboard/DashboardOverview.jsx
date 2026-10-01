@@ -39,15 +39,25 @@ const DashboardOverview = ({
     const allStats = [
         { 
             id: 'centre_mgmt',
-            label: isSuperAdmin ? 'TOTAL CENTRES' : 'ASSIGNED CENTRES', 
-            value: !isSuperAdmin && assignedCentresList.length > 0
-                ? assignedCentresList.length.toString()
+            label: isSuperAdmin ? 'TOTAL CENTRES' : (centreNames.length === 1 ? 'ASSIGNED BRANCH' : 'ASSIGNED BRANCHES'), 
+            value: !isSuperAdmin && centreNames.length > 0
+                ? (centreNames.length === 1 ? centreNames[0] : `${centreNames.length} Branches`)
                 : (erpCentresCount > 0 ? erpCentresCount.toString() : (erpLoaded ? '0' : 'N/A')), 
-            icon: MapPin, 
+            icon: Building2, 
             color: 'emerald', 
-            trend: !isSuperAdmin && assignedCentresList.length > 0 ? 'Your designated branches' : (erpCentresCount > 0 ? 'Across active regions' : 'Live from ERP'),
-            onClick: () => setActiveTab('Centre Management'),
-            visible: isSuperAdmin || hasPermission('centre_mgmt')
+            trend: !isSuperAdmin && assignedCentresList.length > 0 ? 'Your designated branch' : (erpCentresCount > 0 ? 'Across active regions' : 'Live from ERP'),
+            onClick: hasPermission('centre_mgmt') ? () => setActiveTab('Centre Management') : undefined,
+            visible: isSuperAdmin || hasPermission('centre_mgmt') || assignedCentresList.length > 0 || !isSuperAdmin
+        },
+        { 
+            id: 'admin_student',
+            label: isSuperAdmin ? 'TOTAL STUDENTS' : 'ACTIVE STUDENTS', 
+            value: erpStudentsCount > 0 ? erpStudentsCount.toString() : (erpLoaded ? '0' : 'N/A'), 
+            icon: Users, 
+            color: 'purple', 
+            trend: !isSuperAdmin && assignedCentresList.length > 0 ? 'Active in your branch' : (erpStudentsCount > 0 ? 'Live from ERP' : 'Real-time synchronization'),
+            onClick: () => setActiveTab('Admin Student'),
+            visible: isSuperAdmin || hasPermission('admin_mgmt', 'admin_student') || hasPermission('student_activity') || !isSuperAdmin
         },
         { 
             id: 'section_mgmt',
@@ -60,16 +70,6 @@ const DashboardOverview = ({
             trend: dashboardStats?.sections?.thisMonth > 0 ? `+${dashboardStats.sections.thisMonth} this month` : (dashboardStats?.sections?.total !== undefined ? 'All sections active' : 'Master Data'),
             onClick: () => onNavigateMaster('Section Management'),
             visible: isSuperAdmin || hasPermission('section_mgmt') || hasPermission('admin_mgmt', 'admin_master_data')
-        },
-        { 
-            id: 'admin_student',
-            label: isSuperAdmin ? 'TOTAL STUDENTS' : 'BRANCH STUDENTS', 
-            value: erpStudentsCount > 0 ? erpStudentsCount.toString() : (erpLoaded ? '0' : 'N/A'), 
-            icon: Users, 
-            color: 'purple', 
-            trend: !isSuperAdmin && assignedCentresList.length > 0 ? 'Enrolled in your branch(es)' : (erpStudentsCount > 0 ? 'Live from ERP' : 'Real-time synchronization'),
-            onClick: () => setActiveTab('Admin Student'),
-            visible: isSuperAdmin || hasPermission('admin_mgmt', 'admin_student') || hasPermission('student_activity')
         },
         { 
             id: 'question_bank',
@@ -258,7 +258,7 @@ const DashboardOverview = ({
                                             N/A
                                         </span>
                                     ) : (
-                                        <span className={`text-4xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                        <span className={`${typeof stat.value === 'string' && stat.value.length > 5 ? 'text-2xl md:text-3xl' : 'text-4xl'} font-black tracking-tight uppercase truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`} title={stat.value}>
                                             {stat.value}
                                         </span>
                                     )}

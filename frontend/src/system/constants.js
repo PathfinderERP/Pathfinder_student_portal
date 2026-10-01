@@ -132,3 +132,18 @@ export const getSafePermissions = (perms) => {
 
     return base;
 };
+
+export const getAllPermissions = () => {
+    const full = {};
+    permissionTabs.forEach(tab => {
+        if (tab.subs) {
+            full[tab.id] = { view: true, create: true, edit: true, delete: true };
+            tab.subs.forEach(sub => {
+                full[tab.id][sub.id] = { view: true, create: true, edit: true, delete: true };
+            });
+        } else {
+            full[tab.id] = { view: true, create: true, edit: true, delete: true };
+        }
+    });
+    return full;
+};

@@ -143,17 +143,33 @@ const SystemDashboard = () => {
     }, [erpCentres, isSuperAdmin, userAssignedCentres]);
 
     const scopedStudents = useMemo(() => {
-        if (isSuperAdmin || userAssignedCentres.length === 0) return erpStudents;
-        return erpStudents.filter(std => {
-            const stdCentre = (std.centre || std.centre_name || std.centreName || std.center || '').trim().toLowerCase();
-            const stdCentreCode = (std.centreCode || std.centre_code || '').trim().toLowerCase();
-            return userAssignedCentres.some(ac => 
-                ac === stdCentre || 
-                ac === stdCentreCode || 
-                (stdCentre && (stdCentre.includes(ac) || ac.includes(stdCentre))) ||
-                (stdCentreCode && (stdCentreCode.includes(ac) || ac.includes(stdCentreCode)))
-            );
-        });
+        let list = erpStudents;
+        if (!isSuperAdmin && userAssignedCentres.length > 0) {
+            list = list.filter(std => {
+                const stdCentre = (std.centre || std.centre_name || std.centreName || std.center || '').trim().toLowerCase();
+                const stdCentreCode = (std.centreCode || std.centre_code || '').trim().toLowerCase();
+                return userAssignedCentres.some(ac => 
+                    ac === stdCentre || 
+                    ac === stdCentreCode || 
+                    (stdCentre && (stdCentre.includes(ac) || ac.includes(stdCentre))) ||
+                    (stdCentreCode && (stdCentreCode.includes(ac) || ac.includes(stdCentreCode)))
+                );
+            });
+            // Filter only active students for branch views
+            list = list.filter(std => {
+                if (std.is_active === false) return false;
+                const admStatus = String(std.admissionStatus || std.admission_status || '').trim().toUpperCase();
+                if (admStatus) {
+                    return admStatus === 'ACTIVE' || admStatus === 'ADMITTED';
+                }
+                const status = String(std.status || std.student_status || '').trim().toLowerCase();
+                if (status) {
+                    return status !== 'inactive' && status !== 'dropped' && status !== 'suspended' && status !== 'left' && status !== 'cancelled';
+                }
+                return true;
+            });
+        }
+        return list;
     }, [erpStudents, isSuperAdmin, userAssignedCentres]);
 
     // 1. User Management Actions

@@ -3,7 +3,7 @@ import { X, ChevronDown, Shield, MapPin, Search, Check, Building2 } from 'lucide
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { permissionTabs, getSafePermissions } from '../constants';
+import { permissionTabs, getSafePermissions, getAllPermissions } from '../constants';
 
 const EditUserModal = ({ user, onClose, onUpdate }) => {
     const { isDarkMode } = useTheme();
@@ -42,7 +42,7 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
         email: user?.email || '',
         user_type: user?.user_type || 'student',
         assigned_centres: parseInitialCentres(user?.assigned_centres || user?.centres),
-        permissions: getSafePermissions(user?.permissions)
+        permissions: user?.user_type === 'superadmin' ? getAllPermissions() : getSafePermissions(user?.permissions)
     });
 
     useEffect(() => {
@@ -131,6 +131,27 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
 
     const handleClearCentres = () => {
         setFormData(prev => ({ ...prev, assigned_centres: [] }));
+    };
+
+    const handleRoleChange = (newRole) => {
+        if (newRole === 'superadmin') {
+            const allObjs = centresList.map(c => ({
+                id: c.id || c._id || c.code,
+                code: c.code || c.id,
+                name: c.name || c.code
+            }));
+            setFormData(prev => ({
+                ...prev,
+                user_type: newRole,
+                assigned_centres: allObjs,
+                permissions: getAllPermissions()
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                user_type: newRole
+            }));
+        }
     };
 
     const handlePermissionChange = (tab, action, subTab = null) => {
@@ -245,7 +266,7 @@ const EditUserModal = ({ user, onClose, onUpdate }) => {
                                 <select
                                     disabled={!isCurrentSuperAdmin}
                                     value={formData.user_type}
-                                    onChange={e => setFormData({ ...formData, user_type: e.target.value })}
+                                    onChange={e => handleRoleChange(e.target.value)}
                                     style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                     className={`w-full p-3.5 pr-10 rounded-[5px] border font-bold text-sm outline-none transition-all focus:ring-2 focus:ring-orange-500/20 appearance-none 
                                         ${!isCurrentSuperAdmin ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
