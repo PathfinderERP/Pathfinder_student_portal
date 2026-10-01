@@ -9,7 +9,8 @@ import {
     Type, Hash, Zap, Trash2, Save, ChevronLeft, ChevronDown, Check,
     Strikethrough, Quote, Code, Subscript, Superscript,
     AlignLeft, AlignCenter, AlignRight, Link, Sigma,
-    Palette, Droplets, Eraser, Clock, Logs, Copy, Loader2, RefreshCcw, Settings2, Tag
+    Palette, Droplets, Eraser, Clock, Logs, Copy, Loader2, RefreshCcw, Settings2, Tag,
+    Sparkles, CheckCircle2, FileCheck
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -806,19 +807,36 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
         questions: [createNewQuestion()]
     });
 
+    const [showAIModal, setShowAIModal] = useState(false);
+    const [aiQuestionFile, setAiQuestionFile] = useState(null);
+    const [aiAnswerFile, setAiAnswerFile] = useState(null);
     const [isExtractingAI, setIsExtractingAI] = useState(false);
-    const aiFileInputRef = useRef(null);
+    const aiQuestionInputRef = useRef(null);
+    const aiAnswerInputRef = useRef(null);
 
-    const handleAIExtract = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const formatFileSize = (bytes) => {
+        if (!bytes) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    };
+
+    const handleAIExtract = async () => {
+        if (!aiQuestionFile) {
+            alert("Please select a Question PDF or Image.");
+            return;
+        }
 
         const config = getAuthConfig();
         if (!config) return;
 
         setIsExtractingAI(true);
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('question_file', aiQuestionFile);
+        if (aiAnswerFile) {
+            formData.append('answer_file', aiAnswerFile);
+        }
 
         try {
             const apiUrl = getApiUrl();
@@ -833,8 +851,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 const extractedQuestions = res.data.data;
                 const checkCorrect = (ans, label, index) => {
                     if (!ans) return false;
-                    const a = String(ans).toUpperCase();
-                    return a === label || a === String(index) || a.includes(`OPTION ${label}`) || a.includes(`OPTION ${index}`);
+                    const a = String(ans).toUpperCase().trim();
+                    return a === label || a === String(index) || a.includes(`OPTION ${label}`) || a.includes(`OPTION ${index}`) || a.startsWith(`(${label})`) || a.startsWith(`${label}.`);
                 };
                 
                 const newQuestions = extractedQuestions.map(q => {
@@ -863,16 +881,18 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     }
                     return { ...prev, questions: [...prev.questions, ...newQuestions] };
                 });
-                alert(`Successfully extracted ${extractedQuestions.length} question(s).`);
+                alert(`Successfully extracted ${extractedQuestions.length} question(s) with AI!`);
+                setShowAIModal(false);
+                setAiQuestionFile(null);
+                setAiAnswerFile(null);
             } else {
-                alert(res.data.message || 'No questions found.');
+                alert(res.data.message || 'No questions found in the uploaded file.');
             }
         } catch (err) {
             console.error("AI Extraction failed", err);
-            alert("Failed to extract questions from file.");
+            alert("Failed to extract questions: " + (err.response?.data?.message || err.message));
         } finally {
             setIsExtractingAI(false);
-            if (aiFileInputRef.current) aiFileInputRef.current.value = '';
         }
     };
 
@@ -1436,6 +1456,226 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             Insert into Editor
                         </button>
                     </div>
+                </div>
+            </div>
+        );
+    };
+
+    // AI Dual Extraction Modal Component
+    const renderAIModal = () => {
+        if (!showAIModal) return null;
+        return (
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                <div 
+                    className="absolute inset-0 bg-black/70 backdrop-blur-md" 
+                    onClick={() => { if (!isExtractingAI) setShowAIModal(false); }} 
+                />
+                <div className={`relative w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl border transition-all animate-in zoom-in-95 duration-200 ${isDarkMode ? 'bg-[#10141D] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}>
+                    
+                    {/* Modal Header */}
+                    <div className="p-6 border-b border-dashed border-slate-200 dark:border-white/10 flex justify-between items-center bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/10">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                                <Sparkles size={20} />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-black uppercase tracking-wider flex items-center gap-2">
+                                    AI Question & Solution Extractor
+                                </h3>
+                                <p className="text-[11px] opacity-60 font-semibold mt-0.5">
+                                    Upload separate Question and Answer documents for automated parsing & precision matching.
+                                </p>
+                            </div>
+                        </div>
+                        <button 
+                            disabled={isExtractingAI}
+                            onClick={() => setShowAIModal(false)}
+                            className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all disabled:opacity-30"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {/* Modal Body */}
+                    <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                        
+                        {/* Dual Upload Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            
+                            {/* Slot 1: Question Document */}
+                            <div className={`p-6 rounded-xl border-2 transition-all flex flex-col justify-between ${aiQuestionFile ? 'border-indigo-500/50 bg-indigo-500/5' : isDarkMode ? 'border-white/10 bg-white/5 hover:border-indigo-500/30' : 'border-slate-200 bg-slate-50 hover:border-indigo-500/30'}`}>
+                                <div>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <FileText size={18} className="text-indigo-500" />
+                                            <span className="text-xs font-black uppercase tracking-wider">1. Question Paper</span>
+                                        </div>
+                                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-indigo-500 text-white shadow-sm">
+                                            Required
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] opacity-60 font-medium mb-4 leading-relaxed">
+                                        Upload the question paper containing question texts, options (A, B, C, D) and diagrams.
+                                    </p>
+                                </div>
+
+                                <input
+                                    type="file"
+                                    ref={aiQuestionInputRef}
+                                    className="hidden"
+                                    accept=".pdf,image/*"
+                                    onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) setAiQuestionFile(f);
+                                    }}
+                                />
+
+                                {aiQuestionFile ? (
+                                    <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <FileCheck size={24} className="text-indigo-500 shrink-0" />
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold truncate">{aiQuestionFile.name}</p>
+                                                <p className="text-[10px] opacity-50">{formatFileSize(aiQuestionFile.size)}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAiQuestionFile(null);
+                                                if (aiQuestionInputRef.current) aiQuestionInputRef.current.value = '';
+                                            }}
+                                            disabled={isExtractingAI}
+                                            className="p-2 rounded hover:bg-red-500/20 text-red-500 transition-all shrink-0"
+                                            title="Remove File"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div
+                                        onClick={() => aiQuestionInputRef.current?.click()}
+                                        onDragOver={(e) => { e.preventDefault(); }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            const f = e.dataTransfer.files?.[0];
+                                            if (f) setAiQuestionFile(f);
+                                        }}
+                                        className="border-2 border-dashed border-indigo-500/30 hover:border-indigo-500 rounded-xl p-6 text-center cursor-pointer transition-all hover:bg-indigo-500/5 group"
+                                    >
+                                        <CloudUpload size={32} className="mx-auto text-indigo-500 mb-2 group-hover:scale-110 transition-transform" />
+                                        <p className="text-xs font-black uppercase tracking-wider text-indigo-500">
+                                            Choose Question PDF / Image
+                                        </p>
+                                        <p className="text-[10px] opacity-40 mt-1">PDF or image formats up to 25MB</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Slot 2: Answer Key / Solutions Document */}
+                            <div className={`p-6 rounded-xl border-2 transition-all flex flex-col justify-between ${aiAnswerFile ? 'border-emerald-500/50 bg-emerald-500/5' : isDarkMode ? 'border-white/10 bg-white/5 hover:border-emerald-500/30' : 'border-slate-200 bg-slate-50 hover:border-emerald-500/30'}`}>
+                                <div>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <CheckCircle2 size={18} className="text-emerald-500" />
+                                            <span className="text-xs font-black uppercase tracking-wider">2. Answer / Solution Key</span>
+                                        </div>
+                                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-emerald-500 text-white shadow-sm">
+                                            Optional
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] opacity-60 font-medium mb-4 leading-relaxed">
+                                        Upload answer key or solution document for verified correct answers and step-by-step explanations.
+                                    </p>
+                                </div>
+
+                                <input
+                                    type="file"
+                                    ref={aiAnswerInputRef}
+                                    className="hidden"
+                                    accept=".pdf,image/*"
+                                    onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) setAiAnswerFile(f);
+                                    }}
+                                />
+
+                                {aiAnswerFile ? (
+                                    <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <FileCheck size={24} className="text-emerald-500 shrink-0" />
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold truncate">{aiAnswerFile.name}</p>
+                                                <p className="text-[10px] opacity-50">{formatFileSize(aiAnswerFile.size)}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAiAnswerFile(null);
+                                                if (aiAnswerInputRef.current) aiAnswerInputRef.current.value = '';
+                                            }}
+                                            disabled={isExtractingAI}
+                                            className="p-2 rounded hover:bg-red-500/20 text-red-500 transition-all shrink-0"
+                                            title="Remove File"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div
+                                        onClick={() => aiAnswerInputRef.current?.click()}
+                                        onDragOver={(e) => { e.preventDefault(); }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            const f = e.dataTransfer.files?.[0];
+                                            if (f) setAiAnswerFile(f);
+                                        }}
+                                        className="border-2 border-dashed border-emerald-500/30 hover:border-emerald-500 rounded-xl p-6 text-center cursor-pointer transition-all hover:bg-emerald-500/5 group"
+                                    >
+                                        <CloudUpload size={32} className="mx-auto text-emerald-500 mb-2 group-hover:scale-110 transition-transform" />
+                                        <p className="text-xs font-black uppercase tracking-wider text-emerald-500">
+                                            Choose Answer Key / Solution PDF
+                                        </p>
+                                        <p className="text-[10px] opacity-40 mt-1">PDF or image formats up to 25MB</p>
+                                    </div>
+                                )}
+                            </div>
+
+                        </div>
+
+                        {/* Informative Feature Note */}
+                        <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-start gap-3">
+                            <Sparkles size={18} className="text-indigo-500 shrink-0 mt-0.5" />
+                            <div className="text-[11px] leading-relaxed">
+                                <span className="font-bold text-indigo-400">Smart Question-Answer Alignment: </span>
+                                When both files are uploaded, Gemini AI reads the question paper, extracts diagrams and equations in LaTeX, and automatically matches question numbers with the solutions and verified answers from your solution key.
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* Modal Footer */}
+                    <div className="p-6 border-t border-dashed border-slate-200 dark:border-white/10 flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-black/20">
+                        <button
+                            type="button"
+                            disabled={isExtractingAI}
+                            onClick={() => setShowAIModal(false)}
+                            className="px-6 py-3 rounded-lg text-xs font-black uppercase tracking-wider text-slate-400 hover:text-white transition-all disabled:opacity-40"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleAIExtract}
+                            disabled={!aiQuestionFile || isExtractingAI}
+                            className="px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-500/25 active:scale-95 disabled:opacity-40 disabled:active:scale-100 transition-all flex items-center gap-3"
+                        >
+                            {isExtractingAI ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
+                            {isExtractingAI ? 'Extracting & Linking with AI...' : 'Extract Questions with AI'}
+                        </button>
+                    </div>
+
                 </div>
             </div>
         );
@@ -2918,15 +3158,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                             className={`p-3 rounded-[5px] border transition-all ${isDarkMode ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
                             <HardDrive size={20} />
                         </button>
-                        <input
-                            type="file"
-                            ref={aiFileInputRef}
-                            className="hidden"
-                            accept="image/*,.pdf"
-                            onChange={handleAIExtract}
-                        />
                         <button
-                            onClick={() => aiFileInputRef.current?.click()}
+                            onClick={() => setShowAIModal(true)}
                             disabled={isExtractingAI}
                             className="px-6 py-4 bg-indigo-500 text-white rounded-[5px] font-black uppercase tracking-widest text-xs shadow-xl shadow-indigo-500/20 active:scale-95 flex items-center gap-3 hover:bg-indigo-600 transition-colors disabled:opacity-50">
                             {isExtractingAI ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />}
@@ -3803,6 +4036,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             {view === 'media' && renderMediaLibrary()}
             {renderMathModal()}
             {renderBulkUpdateModal()}
+            {renderAIModal()}
 
             <style>{`
                 @keyframes shimmer {

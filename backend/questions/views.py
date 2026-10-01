@@ -547,79 +547,139 @@ class ExtractAIView(APIView):
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated]
 
+    def _load_images_and_text_from_file(self, file_obj):
+        file_bytes = file_obj.read()
+        filename = file_obj.name.lower() if file_obj.name else ''
+        images = []
+        extracted_text = ""
+        
+        if filename.endswith('.pdf') or file_obj.content_type == 'application/pdf':
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                page_text = page.get_text()
+                if page_text:
+                    extracted_text += f"\n--- Page {page_num + 1} ---\n" + page_text
+                pix = page.get_pixmap(dpi=150)
+                img_bytes = pix.tobytes("png")
+                images.append(PIL.Image.open(io.BytesIO(img_bytes)))
+            doc.close()
+        else:
+            images.append(PIL.Image.open(io.BytesIO(file_bytes)))
+            
+        return images, extracted_text
+
     def post(self, request, *args, **kwargs):
         try:
-            file_obj = request.FILES.get('file')
-            if not file_obj:
-                return Response({"status": "error", "message": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+            question_file = request.FILES.get('question_file') or request.FILES.get('file')
+            answer_file = request.FILES.get('answer_file')
+
+            if not question_file:
+                return Response({"status": "error", "message": "Question file is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
                 return Response({"status": "error", "message": "GEMINI_API_KEY not configured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(
-                'gemini-2.5-flash',
-                generation_config=genai.GenerationConfig(
-                    response_mime_type="application/json",
-                    temperature=0.4
-                )
-            )
-
-            file_bytes = file_obj.read()
-            images_to_process = []
-            filename = file_obj.name.lower() if file_obj.name else ''
-
+            primary_model_name = os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
+            candidate_models = [primary_model_name, "gemini-2.5-flash", "gemini-pro-latest"]
+            # Deduplicate while preserving order
             try:
-                if filename.endswith('.pdf') or file_obj.content_type == 'application/pdf':
-                    doc = fitz.open(stream=file_bytes, filetype="pdf")
-                    for page_num in range(len(doc)):
-                        page = doc.load_page(page_num)
-                        pix = page.get_pixmap(dpi=150)
-                        img_bytes = pix.tobytes("png")
-                        images_to_process.append(PIL.Image.open(io.BytesIO(img_bytes)))
-                    doc.close()
-                else:
-                    images_to_process.append(PIL.Image.open(io.BytesIO(file_bytes)))
+                question_images, _ = self._load_images_and_text_from_file(question_file)
             except Exception as e:
-                return Response({"status": "error", "message": f"Failed to parse file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"status": "error", "message": f"Failed to parse question file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            has_answer_file = bool(answer_file)
+            answer_images = []
+            answer_text = ""
+            if has_answer_file:
+                try:
+                    answer_images, answer_text = self._load_images_and_text_from_file(answer_file)
+                except Exception as e:
+                    return Response({"status": "error", "message": f"Failed to parse answer file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
             all_questions = []
             raw_texts = []
 
-            prompt = """
+            answer_prompt_section = ""
+            if has_answer_file:
+                if answer_text.strip():
+                    answer_prompt_section = f"""
+            --- ATTACHED ANSWER KEY / SOLUTION DOCUMENT TEXT ---
+            {answer_text.strip()[:10000]}
+            --- END OF ANSWER KEY DOCUMENT TEXT ---
+            
+            IMPORTANT: Use the Answer Key / Solution Document above (and attached answer images if any) to match each question:
+            - Set the "correctAnswer" strictly matching the answer key for that question number (e.g. "A", "B", "C", "D" or numeric answer).
+            - Extract the detailed explanation or step-by-step solution from the answer key document into the "solution" field.
+            """
+                else:
+                    answer_prompt_section = """
+            IMPORTANT: Answer Key / Solution document image(s) are attached. Look up the question numbers in the answer key to determine the exact "correctAnswer" and extract the step-by-step explanation into the "solution" field.
+            """
+            else:
+                answer_prompt_section = """
+            Extract the correct answer if visible or indicated in the question document. If not explicitly given, solve the question accurately, specify the correct answer ("A", "B", "C", "D", etc.), and provide a clear step-by-step solution in the "solution" field.
+            """
+
+            prompt = f"""
             You are an AI assistant parsing exam questions.
-            Look at the uploaded image. It may contain one or MORE multiple-choice questions.
-            Extract EVERY question text, its options, and its correct answer if visible.
+            Look at the uploaded Question Paper image(s). It may contain one or MORE multiple-choice or subjective questions.
+            Extract EVERY question text, its options, its correct answer, and its solution.
             
-            CRITICAL: Keep the solution concise and to the point. DO NOT repeat the final answer or sentences multiple times.
+            {answer_prompt_section}
             
-            CRITICAL: For ANY mathematical equations, formulas, fractions, subscripts, superscripts, or special symbols, you MUST format them using standard LaTeX mathematical notation wrapped in $ for inline math (e.g., $x^2 + y^2 = r^2$) or $$ for block math.
-            BECAUSE you are returning JSON, you MUST double-escape all backslashes in your LaTeX so the JSON is valid. For example, you must output "\\\\frac{n-1}{a_1a_{n+1}}" instead of "\\frac{n-1}{a_1a_{n+1}}". Do NOT output raw text like (n-1)/(a1an+1).
-            
-            If there is a detailed solution, a step-by-step explanation, OR ANY short reference text (e.g. "NCERT XII Page No 7") provided for the question after the answer, extract ALL of it into the "solution" field, ensuring ALL mathematical steps are properly formatted in LaTeX with double-escaped backslashes.
-            
-            If a question contains a diagram, chart, or icon, you must provide its bounding box coordinates in the format [ymin, xmin, ymax, xmax].
-            The coordinates MUST be integers between 0 and 1000, representing the relative position in the image.
-            If there is no diagram for a question, set "diagramBox" to null.
+            CRITICAL FORMATTING RULES:
+            1. Keep the solution concise and step-by-step. DO NOT repeat the final answer or sentences multiple times.
+            2. For ANY mathematical equations, formulas, fractions, subscripts, superscripts, or special symbols, you MUST format them using standard LaTeX mathematical notation wrapped in $ for inline math (e.g., $x^2 + y^2 = r^2$) or $$ for block math.
+            3. BECAUSE you are returning JSON, you MUST double-escape all backslashes in your LaTeX so the JSON is valid. For example, you must output "\\\\frac{{n-1}}{{a_1a_{{n+1}}}}" instead of "\\frac{{n-1}}{{a_1a_{{n+1}}}}". Do NOT output raw plain text formulas.
+            4. If a question contains a diagram, chart, or icon, you must provide its bounding box coordinates in the format [ymin, xmin, ymax, xmax] relative to the question image.
+               The coordinates MUST be integers between 0 and 1000, representing the relative position in the question image.
+               If there is no diagram for a question, set "diagramBox" to null.
             
             Return ONLY a valid JSON ARRAY of objects in this exact structure without markdown formatting or code blocks:
             [
-              {
+              {{
                 "question": "Question text here with $math$...",
                 "options": ["$Option A$", "Option B", "Option C", "Option D"],
                 "correctAnswer": "A",
                 "solution": "Detailed step-by-step explanation with $$math$$ here...",
                 "diagramBox": [200, 100, 400, 300]
-              },
-              ...
+              }}
             ]
             """
 
-            for idx, image in enumerate(images_to_process):
-                image_width, image_height = image.size
+            for idx, q_image in enumerate(question_images):
+                image_width, image_height = q_image.size
+                raw_text = ""
                 try:
-                    response = model.generate_content([prompt, image])
+                    inputs = [prompt, q_image]
+                    # If answer images exist and answer text wasn't rich, pass answer images as additional context (up to 5 pages)
+                    if has_answer_file and len(answer_images) > 0 and len(answer_text.strip()) < 100:
+                        inputs.extend(answer_images[:5])
+
+                    response = None
+                    last_gen_error = None
+                    for m_name in candidate_models:
+                        try:
+                            model = genai.GenerativeModel(
+                                m_name,
+                                generation_config=genai.GenerationConfig(
+                                    response_mime_type="application/json",
+                                    temperature=0.3
+                                )
+                            )
+                            response = model.generate_content(inputs)
+                            if response and response.text:
+                                break
+                        except Exception as m_err:
+                            last_gen_error = m_err
+                            continue
+
+                    if not response or not response.text:
+                        raise last_gen_error or Exception("No response received from Gemini AI models.")
+
                     raw_text = response.text.strip()
                     raw_texts.append(f"--- PAGE {idx + 1} ---\n{raw_text}")
                     
@@ -655,16 +715,16 @@ class ExtractAIView(APIView):
                             right = min(image_width, right + padding)
                             bottom = min(image_height, bottom + padding)
                             
-                            cropped_img = image.crop((left, top, right, bottom))
+                            cropped_img = q_image.crop((left, top, right, bottom))
                             img_io = io.BytesIO()
                             cropped_img.save(img_io, format='PNG')
                             img_io.seek(0)
                             
                             unique_filename = f"diagram_{uuid.uuid4().hex[:8]}.png"
-                            q_image = QuestionImage.objects.create(image=ContentFile(img_io.read(), name=unique_filename))
+                            q_image_obj = QuestionImage.objects.create(image=ContentFile(img_io.read(), name=unique_filename))
                             
                             # Use build_absolute_uri to provide full path to frontend
-                            q["diagramUrl"] = request.build_absolute_uri(q_image.image.url)
+                            q["diagramUrl"] = request.build_absolute_uri(q_image_obj.image.url)
                         
                         if "diagramBox" in q:
                             del q["diagramBox"]
