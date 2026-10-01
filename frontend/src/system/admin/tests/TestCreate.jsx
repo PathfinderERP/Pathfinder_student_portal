@@ -4,8 +4,9 @@ import {
     FileText, Plus, Search, Edit2, Trash2, Filter, Loader2, Eye,
     Database, X, Check, ChevronDown, RefreshCw, Layers, Clock, ToggleLeft, ToggleRight,
     Bold, Italic, Underline, Type, Quote, Code, List, Superscript, Subscript, AlignLeft,
-    AlignCenter, Link, Image, Sigma, Calculator, ChevronLeft, ChevronRight
+    AlignCenter, Link, Image, Sigma, Calculator, ChevronLeft, ChevronRight, Copy, AlertTriangle, Info
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import SmartEditor from '../components/SmartEditor';
@@ -281,6 +282,59 @@ const TestCreate = ({ isOMR = false }) => {
         has_calculator: false,
         option_type_numeric: false
     });
+
+    // Duplicate Test State
+    const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+    const [duplicateTarget, setDuplicateTarget] = useState(null);
+    const [duplicateForm, setDuplicateForm] = useState({ name: '', code: '' });
+    const [isDuplicating, setIsDuplicating] = useState(false);
+    const [duplicateError, setDuplicateError] = useState('');
+
+    const handleOpenDuplicate = (item) => {
+        setDuplicateTarget(item);
+        const originalName = item.name || '';
+        const originalCode = item.code || '';
+        setDuplicateForm({
+            name: originalName ? `${originalName} (Copy)` : 'New Test (Copy)',
+            code: originalCode ? `${originalCode}_COPY` : 'TEST_COPY'
+        });
+        setDuplicateError('');
+        setDuplicateModalOpen(true);
+    };
+
+    const handleConfirmDuplicate = async (e) => {
+        e.preventDefault();
+        if (!duplicateForm.name.trim()) {
+            setDuplicateError('Exam Title is required.');
+            return;
+        }
+        if (!duplicateForm.code.trim()) {
+            setDuplicateError('Exam Code is required.');
+            return;
+        }
+
+        setIsDuplicating(true);
+        setDuplicateError('');
+        try {
+            const apiUrl = getApiUrl();
+            const config = getAuthConfig();
+            await axios.post(`${apiUrl}/api/tests/${duplicateTarget.id}/duplicate/`, {
+                name: duplicateForm.name.trim(),
+                code: duplicateForm.code.trim()
+            }, config);
+
+            toast.success("Test duplicated successfully with all sections & allotments!");
+            setDuplicateModalOpen(false);
+            setDuplicateTarget(null);
+            dispatchTestsUpdated();
+            fetchData(true);
+        } catch (err) {
+            console.error("Duplicate test failed", err);
+            setDuplicateError(err.response?.data?.error || err.response?.data?.detail || "Failed to duplicate test.");
+        } finally {
+            setIsDuplicating(false);
+        }
+    };
 
     const getAuthConfig = useCallback(() => {
         const activeToken = token || localStorage.getItem('auth_token');
@@ -778,18 +832,28 @@ const TestCreate = ({ isOMR = false }) => {
                                         </div>
                                     </td>
                                     <td className="py-5 px-4 text-right">
-                                        <button
-                                            onClick={() => handleEdit(item)}
-                                            disabled={loadingTestId !== null}
-                                            className={`p-2.5 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-orange-500 hover:bg-orange-500/10' : 'bg-slate-100 text-slate-500 hover:text-orange-600 hover:bg-orange-50'} ${loadingTestId !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            title="View Details & Allotment"
-                                        >
-                                            {loadingTestId === item.id ? (
-                                                <Loader2 size={18} strokeWidth={2.5} className="animate-spin text-orange-500" />
-                                            ) : (
-                                                <Eye size={18} strokeWidth={2.5} />
-                                            )}
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => handleOpenDuplicate(item)}
+                                                disabled={loadingTestId !== null}
+                                                className={`p-2.5 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-blue-500/10 text-blue-400 hover:text-white hover:bg-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'} ${loadingTestId !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                title="Duplicate Test"
+                                            >
+                                                <Copy size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleEdit(item)}
+                                                disabled={loadingTestId !== null}
+                                                className={`p-2.5 rounded-[5px] transition-all hover:scale-110 active:scale-95 ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-orange-500 hover:bg-orange-500/10' : 'bg-slate-100 text-slate-500 hover:text-orange-600 hover:bg-orange-50'} ${loadingTestId !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                title="View Details & Allotment"
+                                            >
+                                                {loadingTestId === item.id ? (
+                                                    <Loader2 size={18} strokeWidth={2.5} className="animate-spin text-orange-500" />
+                                                ) : (
+                                                    <Eye size={18} strokeWidth={2.5} />
+                                                )}
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -1334,10 +1398,129 @@ const TestCreate = ({ isOMR = false }) => {
         );
     }
 
+    const renderDuplicateModal = () => {
+        return (
+            <AnimatePresence>
+                {duplicateModalOpen && (
+                    <div style={{ zIndex: 1100 }} className="fixed inset-0 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => !isDuplicating && setDuplicateModalOpen(false)}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className={`relative w-full max-w-lg rounded-2xl border overflow-hidden shadow-2xl ${isDarkMode ? 'bg-[#0F1117] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                        >
+                            <div className="p-6 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2.5 rounded-xl ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                                        <Copy size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black uppercase tracking-wider">Duplicate Test</h3>
+                                        <p className="text-xs text-slate-400 font-medium">Create a copy of this test with empty sections & full allotments</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => !isDuplicating && setDuplicateModalOpen(false)}
+                                    disabled={isDuplicating}
+                                    className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleConfirmDuplicate} className="p-6 space-y-4">
+                                {duplicateError && (
+                                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-2">
+                                        <AlertTriangle size={16} />
+                                        <span>{duplicateError}</span>
+                                    </div>
+                                )}
+
+                                <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/15 text-xs space-y-1.5">
+                                    <div className="font-bold text-blue-500 flex items-center gap-1.5">
+                                        <Info size={14} />
+                                        <span>Duplication Details</span>
+                                    </div>
+                                    <p className="text-slate-400 text-[11px] leading-relaxed">
+                                        Duplicating will copy the test configuration, duration, marks, question sections (empty of questions), and centre allotments. Questions must be added anew.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-400">
+                                        New Test Title <span className="text-orange-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={duplicateForm.name}
+                                        onChange={(e) => setDuplicateForm({ ...duplicateForm, name: e.target.value })}
+                                        placeholder="e.g. 2026_28 WBJEE PHASE TEST 03 XI MATH (COPY)"
+                                        required
+                                        className={`w-full px-4 py-3 rounded-xl border text-sm font-semibold transition-all outline-none focus:ring-2 focus:ring-orange-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-400">
+                                        New Test Code <span className="text-orange-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={duplicateForm.code}
+                                        onChange={(e) => setDuplicateForm({ ...duplicateForm, code: e.target.value.toUpperCase() })}
+                                        placeholder="e.g. 26_28WBJEEPT03M_V2"
+                                        required
+                                        className={`w-full px-4 py-3 rounded-xl border text-sm font-bold uppercase font-mono transition-all outline-none focus:ring-2 focus:ring-orange-500 ${isDarkMode ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
+                                    <button
+                                        type="button"
+                                        onClick={() => setDuplicateModalOpen(false)}
+                                        disabled={isDuplicating}
+                                        className={`px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isDuplicating}
+                                        className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-orange-600/30 flex items-center gap-2 transition-all active:scale-95"
+                                    >
+                                        {isDuplicating ? (
+                                            <>
+                                                <Loader2 size={14} className="animate-spin" />
+                                                <span>Duplicating...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Copy size={14} />
+                                                <span>Duplicate Test</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        );
+    };
+
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             {renderContent()}
             {renderModal()}
+            {renderDuplicateModal()}
         </div>
     );
 };

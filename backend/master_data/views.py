@@ -1028,6 +1028,128 @@ class ExamDetailViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = ExamDetail.objects.select_related('session', 'exam_type', 'class_level').prefetch_related('target_exams', 'sessions', 'class_levels').all().order_by('-created_at')
     serializer_class = ExamDetailSerializer
 
+    @action(detail=True, methods=['post'], url_path='duplicate')
+    def duplicate(self, request, pk=None):
+        source_exam = self.get_object()
+        new_name = str(request.data.get('name') or '').strip()
+        new_code = str(request.data.get('code') or '').strip()
+
+        if not new_name:
+            return response.Response({"error": "Exam Title is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not new_code:
+            return response.Response({"error": "Exam Code is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Ensure uniqueness
+        if ExamDetail.objects.filter(code__iexact=new_code).exists():
+            return response.Response({"error": f"Exam Code '{new_code}' already exists in Exam Details."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from tests.models import Test, TestCentreAllotment
+        if Test.objects.filter(code__iexact=new_code).exists():
+            return response.Response({"error": f"Exam Code '{new_code}' already exists in Tests."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user_str = str(request.user.email or request.user.username or 'Admin') if request.user and request.user.is_authenticated else 'Admin'
+
+        # 1. Create duplicate ExamDetail
+        new_exam = ExamDetail.objects.create(
+            name=new_name,
+            code=new_code,
+            session=source_exam.session,
+            exam_type=source_exam.exam_type,
+            class_level=source_exam.class_level,
+            duration=source_exam.duration,
+            total_marks=source_exam.total_marks,
+            has_calculator=source_exam.has_calculator,
+            option_type_numeric=source_exam.option_type_numeric,
+            instructions=source_exam.instructions,
+            is_active=source_exam.is_active,
+            created_by=user_str,
+            updated_by=user_str
+        )
+        new_exam.sessions.set(source_exam.sessions.all())
+        new_exam.target_exams.set(source_exam.target_exams.all())
+        new_exam.class_levels.set(source_exam.class_levels.all())
+
+        # 2. Duplicate Test & Sections (WITHOUT questions) & Centre Allotments
+        source_test = Test.objects.filter(code=source_exam.code).first()
+        new_test = Test.objects.filter(code=new_code).first()
+        if not new_test:
+            new_test = Test.objects.create(
+                name=new_name,
+                code=new_code,
+                session=source_exam.session,
+                exam_type=source_exam.exam_type,
+                class_level=source_exam.class_level,
+                duration=source_exam.duration,
+                total_marks=source_exam.total_marks,
+                has_calculator=source_exam.has_calculator,
+                option_type_numeric=source_exam.option_type_numeric,
+                instructions=source_exam.instructions
+            )
+            new_test.sessions.set(source_exam.sessions.all())
+            new_test.target_exams.set(source_exam.target_exams.all())
+            new_test.class_levels.set(source_exam.class_levels.all())
+
+        if source_test:
+            new_test.package = source_test.package
+            new_test.is_omr_based = source_test.is_omr_based
+            new_test.description = source_test.description
+            new_test.save()
+
+            # Copy Centres
+            new_test.centres.set(source_test.centres.all())
+
+            # Copy Sections WITHOUT questions
+            from sections.models import Section
+            for sec in source_test.sections.all():
+                Section.objects.create(
+                    test=new_test,
+                    name=sec.name,
+                    subject_code=sec.subject_code,
+                    total_questions=sec.total_questions,
+                    allowed_questions=sec.allowed_questions,
+                    shuffle=sec.shuffle,
+                    question_type=sec.question_type,
+                    correct_marks=sec.correct_marks,
+                    negative_marks=sec.negative_marks,
+                    partial_type=sec.partial_type,
+                    partial_marks=sec.partial_marks,
+                    partial_mark_rule=sec.partial_mark_rule,
+                    priority=sec.priority,
+                    question_order=[]  # Empty questions
+                )
+
+            # Copy Centre Allotments
+            import random, string
+            for allot in source_test.centre_allotments.all():
+                new_acc_code = None
+                if allot.access_code:
+                    chars = string.ascii_uppercase + string.digits
+                    new_acc_code = ''.join(random.choices(chars, k=6))
+                    while TestCentreAllotment.objects.filter(access_code=new_acc_code).exists():
+                        new_acc_code = ''.join(random.choices(chars, k=6))
+                
+                TestCentreAllotment.objects.create(
+                    test=new_test,
+                    centre=allot.centre,
+                    start_time=allot.start_time,
+                    end_time=allot.end_time,
+                    is_active=allot.is_active,
+                    access_code=new_acc_code,
+                    is_code_sent=False,
+                    was_sent=False
+                )
+
+        from django.core.cache import cache
+        cache.delete('admin_test_list')
+        cache.delete('admin_test_roster_counts_v1')
+
+        serializer = self.get_serializer(new_exam)
+        return response.Response({
+            "message": "Exam duplicated successfully!",
+            "data": serializer.data,
+            "test_id": new_test.id if new_test else None
+        }, status=status.HTTP_201_CREATED)
+
 class SubjectViewSet(CachedListViewSetMixin, viewsets.ModelViewSet):
     queryset = Subject.objects.all().order_by('-created_at')
     serializer_class = SubjectSerializer
