@@ -582,8 +582,9 @@ class ExtractAIView(APIView):
                 return Response({"status": "error", "message": "GEMINI_API_KEY not configured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             genai.configure(api_key=api_key)
-            primary_model_name = os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
-            candidate_models = [primary_model_name, "gemini-2.5-flash", "gemini-pro-latest"]
+            primary_model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+            candidate_models = [primary_model_name, "gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-pro-latest"]
+            candidate_models = list(dict.fromkeys([m for m in candidate_models if m]))
             # Deduplicate while preserving order
             try:
                 question_images, _ = self._load_images_and_text_from_file(question_file)
@@ -604,23 +605,30 @@ class ExtractAIView(APIView):
 
             answer_prompt_section = ""
             if has_answer_file:
-                if answer_text.strip():
-                    answer_prompt_section = f"""
+                text_part = f"""
             --- ATTACHED ANSWER KEY / SOLUTION DOCUMENT TEXT ---
-            {answer_text.strip()[:10000]}
+            {answer_text.strip()[:100000]}
             --- END OF ANSWER KEY DOCUMENT TEXT ---
-            
-            IMPORTANT: Use the Answer Key / Solution Document above (and attached answer images if any) to match each question:
-            - Set the "correctAnswer" strictly matching the answer key for that question number (e.g. "A", "B", "C", "D" or numeric answer).
-            - Extract the detailed explanation or step-by-step solution from the answer key document into the "solution" field.
-            """
-                else:
-                    answer_prompt_section = """
-            IMPORTANT: Answer Key / Solution document image(s) are attached. Look up the question numbers in the answer key to determine the exact "correctAnswer" and extract the step-by-step explanation into the "solution" field.
+            """ if answer_text.strip() else ""
+
+                answer_prompt_section = f"""
+            {text_part}
+            MANDATORY ANSWER KEY & SOLUTION EXTRACTION INSTRUCTIONS:
+            An Answer Key / Solution document is provided (via text above and/or attached answer images).
+            For EVERY question extracted from the Question Paper:
+            1. Locate its corresponding question number (e.g. Question 45, (45), 45.) in the Answer Key / Solution document.
+            2. Set "correctAnswer" strictly matching the answer key for that question number (e.g. "A", "B", "C", "D", "1", "2", "3", "4", or numeric answer).
+            3. Extract the COMPLETE, EXACT explanation / rationale / step-by-step solution from the Answer Key document directly into the "solution" field:
+               - YOU MUST FAITHFULLY EXTRACT the exact wording, biological/scientific/mathematical explanations, reasons, and derivations given in the answer key.
+               - DO NOT summarize, DO NOT shorten, and DO NOT rewrite or replace the provided explanation with your own generated words.
+               - DO NOT hallucinate or invent your own solution when an explanation exists in the answer key document.
+               - Convert any inline mathematical formulas, variables, subscripts, or chemical equations to proper LaTeX notation ($...$ for inline, $$...$$ for block math).
+            4. ONLY if the answer key gives just the option letter without any explanation text, should you provide a clear, accurate step-by-step solution in the "solution" field.
             """
             else:
                 answer_prompt_section = """
             Extract the correct answer if visible or indicated in the question document. If not explicitly given, solve the question accurately, specify the correct answer ("A", "B", "C", "D", etc.), and provide a clear step-by-step solution in the "solution" field.
+            If the question document contains explanations or solutions (e.g. at the bottom of the question or end of the document), extract that exact explanation verbatim.
             """
 
             prompt = f"""
@@ -631,7 +639,7 @@ class ExtractAIView(APIView):
             {answer_prompt_section}
             
             CRITICAL FORMATTING RULES:
-            1. Keep the solution concise and step-by-step. DO NOT repeat the final answer or sentences multiple times.
+            1. FAITHFUL EXTRACTION: When extracting questions, options, and solutions, preserve the complete original text and all explanation details. DO NOT truncate, condense, or omit explanation sentences.
             2. For ANY mathematical equations, formulas, fractions, subscripts, superscripts, or special symbols, you MUST format them using standard LaTeX mathematical notation wrapped in $ for inline math (e.g., $x^2 + y^2 = r^2$) or $$ for block math.
             3. BECAUSE you are returning JSON, you MUST double-escape all backslashes in your LaTeX so the JSON is valid. For example, you must output "\\\\frac{{n-1}}{{a_1a_{{n+1}}}}" instead of "\\frac{{n-1}}{{a_1a_{{n+1}}}}". Do NOT output raw plain text formulas.
             4. If a question contains a diagram, chart, or icon, you must provide its bounding box coordinates in the format [ymin, xmin, ymax, xmax] relative to the question image.
@@ -644,7 +652,7 @@ class ExtractAIView(APIView):
                 "question": "Question text here with $math$...",
                 "options": ["$Option A$", "Option B", "Option C", "Option D"],
                 "correctAnswer": "A",
-                "solution": "Detailed step-by-step explanation with $$math$$ here...",
+                "solution": "Exact step-by-step explanation with $$math$$ here...",
                 "diagramBox": [200, 100, 400, 300]
               }}
             ]
@@ -655,9 +663,9 @@ class ExtractAIView(APIView):
                 raw_text = ""
                 try:
                     inputs = [prompt, q_image]
-                    # If answer images exist and answer text wasn't rich, pass answer images as additional context (up to 5 pages)
-                    if has_answer_file and len(answer_images) > 0 and len(answer_text.strip()) < 100:
-                        inputs.extend(answer_images[:5])
+                    # Pass answer images as additional context if answer file was provided
+                    if has_answer_file and len(answer_images) > 0:
+                        inputs.extend(answer_images[:15])
 
                     response = None
                     last_gen_error = None
@@ -667,7 +675,7 @@ class ExtractAIView(APIView):
                                 m_name,
                                 generation_config=genai.GenerationConfig(
                                     response_mime_type="application/json",
-                                    temperature=0.3
+                                    temperature=0.1
                                 )
                             )
                             response = model.generate_content(inputs)
