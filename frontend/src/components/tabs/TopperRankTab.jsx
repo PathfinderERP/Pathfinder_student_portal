@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Award, Trophy, Medal, Star, TrendingUp, BarChart2, CheckCircle2, Search, Filter, Layers, Building2, BookOpen, Users, RefreshCw, Download, ChevronDown } from 'lucide-react';
+import { Award, Trophy, Medal, Star, TrendingUp, BarChart2, CheckCircle2, Search, Filter, Layers, Building2, BookOpen, Users, RefreshCw, Download, ChevronDown, Inbox, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import axios from 'axios';
@@ -141,7 +141,7 @@ const TopperRankTab = ({ teacherUser }) => {
     const [scopeFilter, setScopeFilter] = useState('all');
     const [selectedCenterFilter, setSelectedCenterFilter] = useState('ALL');
     const [toppers, setToppers] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isRealData, setIsRealData] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -226,17 +226,14 @@ const TopperRankTab = ({ teacherUser }) => {
                     setSelectedTestId(String(res.data.selected_test_id));
                 }
                 if (res.data.db_note) console.info('[TopperRankTab]', res.data.db_note);
+            } else {
+                setToppers([]);
             }
             setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
         } catch (err) {
             console.error("Topper ranks fetch error:", err);
             setIsRealData(false);
-            setToppers([
-                { rank: 1, student_name: "Aarav Ganguly", roll_no: "PF-2026-0042", batch: "MED-12A", center: "Kolkata Central", total_marks: 96, max_marks: 100, percentage: 96.00, subject_breakdown: { Physics: 96 }, percentile: 99.98 },
-                { rank: 2, student_name: "Abhinav Mukhopadhyay", roll_no: "PF-2026-0055", batch: "Batch A", center: "Dumdum Center", total_marks: 94, max_marks: 100, percentage: 94.00, subject_breakdown: { Physics: 94 }, percentile: 99.92 },
-                { rank: 3, student_name: "Diya Sengupta", roll_no: "PF-2026-0089", batch: "MED-12A", center: "Durgapur", total_marks: 92, max_marks: 100, percentage: 92.00, subject_breakdown: { Physics: 92 }, percentile: 99.85 },
-                { rank: 4, student_name: "Devjyoti Paul", roll_no: "PF-2026-0098", batch: "Batch A", center: "Dumdum Center", total_marks: 90, max_marks: 100, percentage: 90.00, subject_breakdown: { Physics: 90 }, percentile: 99.80 },
-            ]);
+            setToppers([]);
         } finally {
             setLoading(false);
         }
@@ -283,20 +280,20 @@ const TopperRankTab = ({ teacherUser }) => {
     };
 
     const filteredToppers = toppers.filter(st => {
-        const matchesSearch = st.student_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            st.roll_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            st.batch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            st.center.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = (st.student_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+            (st.roll_no || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (st.batch || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (st.center || '').toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesCenter = selectedCenterFilter === 'ALL' || 
-            st.center.toLowerCase().trim() === selectedCenterFilter.toLowerCase().trim() ||
-            st.center.toLowerCase().includes(selectedCenterFilter.toLowerCase().trim());
+            (st.center || '').toLowerCase().trim() === selectedCenterFilter.toLowerCase().trim() ||
+            (st.center || '').toLowerCase().includes(selectedCenterFilter.toLowerCase().trim());
         
         if (scopeFilter === 'center') {
-            return matchesSearch && matchesCenter && st.center.toLowerCase().includes(teacherCenter.toLowerCase());
+            return matchesSearch && matchesCenter && (st.center || '').toLowerCase().includes(teacherCenter.toLowerCase());
         }
         if (scopeFilter === 'batch') {
-            return matchesSearch && matchesCenter && st.batch.toLowerCase().includes(teacherBatch.toLowerCase());
+            return matchesSearch && matchesCenter && (st.batch || '').toLowerCase().includes(teacherBatch.toLowerCase());
         }
         return matchesSearch && matchesCenter;
     });
@@ -333,20 +330,14 @@ const TopperRankTab = ({ teacherUser }) => {
                         <div className="flex items-center gap-2 flex-wrap">
                             <Trophy className="text-amber-400" size={24} />
                             <h2 className="text-xl md:text-2xl font-black tracking-tight">Rank Produce (Topper Ranks)</h2>
-                            {isRealData ? (
+                            {isRealData && toppers.length > 0 && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
                                     ● Live Data
-                                </span>
-                            ) : (
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'bg-amber-100 text-amber-700 border border-amber-300'}`}>
-                                    ◌ Sample Data
                                 </span>
                             )}
                         </div>
                         <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            {isRealData
-                                ? 'Showing exam-wise student performance & topper rankings from published exams.'
-                                : 'No published exam results found yet. Sample data shown below.'}
+                            Showing exam-wise student performance & topper rankings from published exams.
                         </p>
                         {/* Teacher context info chips */}
                         <div className="flex flex-wrap gap-2 pt-1">
@@ -432,9 +423,8 @@ const TopperRankTab = ({ teacherUser }) => {
                                 >
                                     <span className="truncate">
                                         {(() => {
-                                            if (selectedTestId === 'all') return '⚡ All Exams Combined (Overall Aggregate)';
                                             const found = publishedExams.find(ex => String(ex.id) === String(selectedTestId));
-                                            return found ? `${found.name} (Max Marks: ${found.total_marks} • ${found.submissions_count} Students)` : 'Select Exam...';
+                                            return found ? `${found.name} (Max Marks: ${found.total_marks} • ${found.submissions_count} Students)` : (publishedExams.length > 0 ? `${publishedExams[0].name} (Max Marks: ${publishedExams[0].total_marks} • ${publishedExams[0].submissions_count} Students)` : 'Select Exam...');
                                         })()}
                                     </span>
                                     <ChevronDown size={14} className={`shrink-0 transition-transform ${examDropdownOpen ? 'rotate-180' : ''}`} />
@@ -479,18 +469,6 @@ const TopperRankTab = ({ teacherUser }) => {
                                                     {ex.name} <span className="opacity-60">(Max Marks: {ex.total_marks} • {ex.submissions_count} Students)</span>
                                                 </button>
                                             ))}
-                                            {/* All Exams option */}
-                                            <button
-                                                type="button"
-                                                onClick={() => { setSelectedTestId('all'); setExamDropdownOpen(false); setExamSearchQuery(''); }}
-                                                className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors border-t ${
-                                                    selectedTestId === 'all'
-                                                        ? (isDarkMode ? 'bg-amber-500/20 text-amber-300 border-white/10' : 'bg-amber-100 text-amber-900 border-slate-200')
-                                                        : (isDarkMode ? 'text-slate-300 hover:bg-white/5 border-white/10' : 'text-slate-700 hover:bg-slate-50 border-slate-200')
-                                                }`}
-                                            >
-                                                ⚡ All Exams Combined <span className="opacity-60">(Overall Aggregate)</span>
-                                            </button>
                                             {filteredExams.length === 0 && (
                                                 <div className={`px-3 py-4 text-center text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                                                     No exams matching "{examSearchQuery}"
@@ -643,142 +621,254 @@ const TopperRankTab = ({ teacherUser }) => {
                 </div>
             )}
 
-            {/* Top 3 Podium Highlights */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredToppers.slice(0, 3).map((top, idx) => (
-                    <div
-                        key={idx}
-                        className={`relative p-5 md:p-6 rounded-2xl border flex flex-col justify-between overflow-hidden transition-all duration-300 ${
-                            top.rank === 1
-                                ? (isDarkMode ? 'bg-gradient-to-br from-amber-950/40 to-slate-900 border-amber-500/50 shadow-amber-500/10' : 'bg-gradient-to-br from-amber-50 via-white to-orange-50/80 border-amber-300 shadow-amber-500/10')
-                                : top.rank === 2
-                                ? (isDarkMode ? 'bg-gradient-to-br from-slate-900 to-slate-950 border-slate-400/40 shadow-slate-400/10' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100/90 border-slate-300 shadow-slate-400/10')
-                                : (isDarkMode ? 'bg-gradient-to-br from-amber-950/20 to-slate-950 border-amber-700/40 shadow-amber-700/10' : 'bg-gradient-to-br from-orange-50/50 via-white to-amber-50/80 border-amber-400/40 shadow-amber-700/10')
-                        } shadow-xl`}
-                    >
-                        <div className="flex items-center justify-between">
-                            {getRankBadge(top.rank)}
-                            <span className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{top.percentile} Percentile</span>
-                        </div>
-
-                        <div className="my-4 space-y-1">
-                            <h3 className={`text-lg md:text-xl font-black truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{top.student_name}</h3>
-                            <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{top.roll_no} • {top.batch}</p>
-                            <p className={`text-xs font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{top.center}</p>
-                        </div>
-
-                        <div className={`pt-4 border-t flex items-center justify-between ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
-                            <div>
-                                <span className={`text-[10px] font-bold uppercase block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Score</span>
-                                <span className={`text-base md:text-lg font-black ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{top.total_marks} <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>/ {top.max_marks}</span></span>
+            {/* ── Content View: Loading Skeletons vs Data vs Empty State ── */}
+            {loading ? (
+                /* Skeleton Loader State */
+                <div className="space-y-6">
+                    {/* Podium Skeleton */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[1, 2, 3].map(idx => (
+                            <div
+                                key={idx}
+                                className={`p-5 md:p-6 rounded-2xl border flex flex-col justify-between overflow-hidden animate-pulse ${
+                                    isDarkMode ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200'
+                                } shadow-xl`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className={`h-6 w-14 rounded-xl ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                    <div className={`h-4 w-28 rounded-md ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                </div>
+                                <div className="my-5 space-y-2">
+                                    <div className={`h-6 w-3/4 rounded-lg ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                    <div className={`h-4 w-1/2 rounded-md ${isDarkMode ? 'bg-slate-800/60' : 'bg-slate-200/60'}`} />
+                                    <div className={`h-4 w-1/3 rounded-md ${isDarkMode ? 'bg-slate-800/40' : 'bg-slate-200/40'}`} />
+                                </div>
+                                <div className={`pt-4 border-t flex items-center justify-between ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                                    <div className="space-y-1">
+                                        <div className={`h-3 w-10 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                        <div className={`h-5 w-16 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                    </div>
+                                    <div className="space-y-1 flex flex-col items-end">
+                                        <div className={`h-3 w-16 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                        <div className={`h-5 w-14 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <span className={`text-[10px] font-bold uppercase block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Percentage</span>
-                                <span className={`text-base md:text-lg font-black ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>{top.percentage}%</span>
-                            </div>
+                        ))}
+                    </div>
+
+                    {/* Table Skeleton */}
+                    <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200'} shadow-xl animate-pulse`}>
+                        <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                            <div className={`h-4 w-44 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                            <div className={`h-4 w-24 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                        </div>
+                        <div className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-200'}`}>
+                            {[1, 2, 3, 4, 5].map(idx => (
+                                <div key={idx} className="p-4 flex items-center justify-between gap-4">
+                                    <div className={`h-7 w-12 rounded-xl ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                    <div className="flex-1 space-y-2">
+                                        <div className={`h-4 w-48 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                        <div className={`h-3 w-28 rounded ${isDarkMode ? 'bg-slate-800/60' : 'bg-slate-200/60'}`} />
+                                    </div>
+                                    <div className={`h-4 w-24 rounded hidden sm:block ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                    <div className={`h-4 w-20 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                    <div className={`h-4 w-16 rounded ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                                </div>
+                            ))}
                         </div>
                     </div>
-                ))}
-            </div>
-
-            {/* Controls & Search */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="relative flex-1 w-full">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input
-                        type="text"
-                        placeholder="Search rankers by name, roll no, batch, or center..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs font-semibold outline-none ${
-                            isDarkMode
-                                ? 'bg-slate-900/60 border-white/10 text-white placeholder:text-slate-500 focus:border-amber-500/50'
-                                : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-amber-500'
-                        }`}
-                    />
                 </div>
-
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={handleExportCSV}
-                        disabled={loading || filteredToppers.length === 0}
-                        title="Export Currently Filtered Rankers to CSV"
-                        className={`px-4 py-2.5 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 ${
-                            isDarkMode
-                                ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-600/30'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                        }`}
-                    >
-                        <Download size={14} className="text-emerald-500" />
-                        <span>Export CSV</span>
-                    </button>
-
-                    <button
-                        onClick={fetchToppers}
-                        disabled={loading}
-                        className={`px-4 py-2.5 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-wider transition-all shadow-md ${
-                            isDarkMode
-                                ? 'bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800'
-                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                        }`}
-                    >
-                        <RefreshCw size={14} className={`text-amber-500 ${loading ? 'animate-spin' : ''}`} />
-                        <span>Sync & Refresh Data</span>
-                    </button>
+            ) : filteredToppers.length === 0 ? (
+                /* Empty State: No Data Available */
+                <div className={`rounded-2xl border p-12 text-center flex flex-col items-center justify-center space-y-4 shadow-xl transition-all ${
+                    isDarkMode ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200'
+                }`}>
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner ${
+                        isDarkMode ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-amber-50 text-amber-600 border border-amber-200'
+                    }`}>
+                        <Inbox size={32} />
+                    </div>
+                    <div className="max-w-md space-y-1.5">
+                        <h3 className={`text-lg font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            {searchQuery || selectedCenterFilter !== 'ALL' || scopeFilter !== 'all'
+                                ? 'No Rankers Match Your Filters'
+                                : 'No Data Available'}
+                        </h3>
+                        <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {searchQuery || selectedCenterFilter !== 'ALL' || scopeFilter !== 'all'
+                                ? 'No student records matched your current search term or filter selection. Try resetting filters.'
+                                : 'No published exam results or student submissions were found for your assigned batches and centres.'}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                        {(searchQuery || selectedCenterFilter !== 'ALL' || scopeFilter !== 'all') && (
+                            <button
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setSelectedCenterFilter('ALL');
+                                    setScopeFilter('all');
+                                }}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                    isDarkMode 
+                                        ? 'bg-slate-800 border-white/10 text-slate-200 hover:bg-slate-700' 
+                                        : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                                }`}
+                            >
+                                Clear All Filters
+                            </button>
+                        )}
+                        <button
+                            onClick={fetchToppers}
+                            disabled={loading}
+                            className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all active:scale-95 hover:opacity-95"
+                        >
+                            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                            <span>Sync & Refresh Data</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                /* Live Data View */
+                <>
+                    {/* Top 3 Podium Highlights */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredToppers.slice(0, 3).map((top, idx) => (
+                            <div
+                                key={idx}
+                                className={`relative p-5 md:p-6 rounded-2xl border flex flex-col justify-between overflow-hidden transition-all duration-300 ${
+                                    top.rank === 1
+                                        ? (isDarkMode ? 'bg-gradient-to-br from-amber-950/40 to-slate-900 border-amber-500/50 shadow-amber-500/10' : 'bg-gradient-to-br from-amber-50 via-white to-orange-50/80 border-amber-300 shadow-amber-500/10')
+                                        : top.rank === 2
+                                        ? (isDarkMode ? 'bg-gradient-to-br from-slate-900 to-slate-950 border-slate-400/40 shadow-slate-400/10' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100/90 border-slate-300 shadow-slate-400/10')
+                                        : (isDarkMode ? 'bg-gradient-to-br from-amber-950/20 to-slate-950 border-amber-700/40 shadow-amber-700/10' : 'bg-gradient-to-br from-orange-50/50 via-white to-amber-50/80 border-amber-400/40 shadow-amber-700/10')
+                                } shadow-xl`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    {getRankBadge(top.rank)}
+                                    <span className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{top.percentile} Percentile</span>
+                                </div>
 
-            {/* Leaderboard Table (Responsive Overflow Container) */}
-            <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200'} shadow-xl`}>
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left text-xs border-collapse min-w-[750px]">
-                        <thead>
-                            <tr className={`border-b font-extrabold uppercase tracking-wider text-[11px] ${isDarkMode ? 'bg-slate-950/60 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
-                                <th className="p-4">Rank</th>
-                                <th className="p-4">Student Name & Roll</th>
-                                <th className="p-4">Batch & Center</th>
-                                <th className="p-4">{selectedSubject !== 'All' ? `${selectedSubject} Marks` : 'Subject Marks'}</th>
-                                <th className="p-4">Total Exam Marks</th>
-                                <th className="p-4">Percentage</th>
-                                <th className="p-4">Subject Breakdown</th>
-                                <th className="p-4">Percentile</th>
-                            </tr>
-                        </thead>
-                        <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-200'}`}>
-                            {filteredToppers.map(st => (
-                                <tr key={st.rank} className={`transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/80'}`}>
-                                    <td className="p-4">{getRankBadge(st.rank)}</td>
-                                    <td className="p-4">
-                                        <p className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{st.student_name}</p>
-                                        <p className={`text-[11px] font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{st.roll_no}</p>
-                                    </td>
-                                    <td className="p-4">
-                                        <p className={`font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>{st.batch}</p>
-                                        <p className={`text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{st.center}</p>
-                                    </td>
-                                    <td className={`p-4 font-black text-sm ${st.total_marks === 0 ? (isDarkMode ? 'text-rose-400' : 'text-rose-600') : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')}`}>
-                                        {st.total_marks} / {st.max_marks}
-                                    </td>
-                                    <td className={`p-4 font-black text-sm ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                                        {st.full_exam_total_marks !== undefined ? st.full_exam_total_marks : st.total_marks} / {st.full_exam_max_marks !== undefined ? st.full_exam_max_marks : st.max_marks}
-                                    </td>
-                                    <td className={`p-4 font-bold ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>{st.percentage}%</td>
-                                    <td className="p-4">
-                                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                                            {Object.entries(st.subject_breakdown).map(([sub, score]) => (
-                                                <span key={sub} className={`px-2 py-0.5 rounded border font-mono font-bold ${score === 0 ? (isDarkMode ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-600') : (isDarkMode ? 'bg-slate-800 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700')}`}>
-                                                    {sub.slice(0, 3)}: {score}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className={`p-4 font-black ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{st.percentile} %ile</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                <div className="my-4 space-y-1">
+                                    <h3 className={`text-lg md:text-xl font-black truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{top.student_name}</h3>
+                                    <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>{top.roll_no} • {top.batch}</p>
+                                    <p className={`text-xs font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{top.center}</p>
+                                </div>
+
+                                <div className={`pt-4 border-t flex items-center justify-between ${isDarkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                                    <div>
+                                        <span className={`text-[10px] font-bold uppercase block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Score</span>
+                                        <span className={`text-base md:text-lg font-black ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{top.total_marks} <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>/ {top.max_marks}</span></span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`text-[10px] font-bold uppercase block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Percentage</span>
+                                        <span className={`text-base md:text-lg font-black ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>{top.percentage}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Controls & Search */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="relative flex-1 w-full">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search rankers by name, roll no, batch, or center..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs font-semibold outline-none ${
+                                    isDarkMode
+                                        ? 'bg-slate-900/60 border-white/10 text-white placeholder:text-slate-500 focus:border-amber-500/50'
+                                        : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-amber-500'
+                                }`}
+                            />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleExportCSV}
+                                disabled={loading || filteredToppers.length === 0}
+                                title="Export Currently Filtered Rankers to CSV"
+                                className={`px-4 py-2.5 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 ${
+                                    isDarkMode
+                                        ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-600/30'
+                                        : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                }`}
+                            >
+                                <Download size={14} className="text-emerald-500" />
+                                <span>Export CSV</span>
+                            </button>
+
+                            <button
+                                onClick={fetchToppers}
+                                disabled={loading}
+                                className={`px-4 py-2.5 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-wider transition-all shadow-md ${
+                                    isDarkMode
+                                        ? 'bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                }`}
+                            >
+                                <RefreshCw size={14} className={`text-amber-500 ${loading ? 'animate-spin' : ''}`} />
+                                <span>Sync & Refresh Data</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Leaderboard Table (Responsive Overflow Container) */}
+                    <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200'} shadow-xl`}>
+                        <div className="overflow-x-auto custom-scrollbar">
+                            <table className="w-full text-left text-xs border-collapse min-w-[750px]">
+                                <thead>
+                                    <tr className={`border-b font-extrabold uppercase tracking-wider text-[11px] ${isDarkMode ? 'bg-slate-950/60 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-700'}`}>
+                                        <th className="p-4">Rank</th>
+                                        <th className="p-4">Student Name & Roll</th>
+                                        <th className="p-4">Batch & Center</th>
+                                        <th className="p-4">{selectedSubject !== 'All' ? `${selectedSubject} Marks` : 'Subject Marks'}</th>
+                                        <th className="p-4">Total Exam Marks</th>
+                                        <th className="p-4">Percentage</th>
+                                        <th className="p-4">Subject Breakdown</th>
+                                        <th className="p-4">Percentile</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-200'}`}>
+                                    {filteredToppers.map(st => (
+                                        <tr key={st.rank} className={`transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/80'}`}>
+                                            <td className="p-4">{getRankBadge(st.rank)}</td>
+                                            <td className="p-4">
+                                                <p className={`font-black text-sm ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{st.student_name}</p>
+                                                <p className={`text-[11px] font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{st.roll_no}</p>
+                                            </td>
+                                            <td className="p-4">
+                                                <p className={`font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>{st.batch}</p>
+                                                <p className={`text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{st.center}</p>
+                                            </td>
+                                            <td className={`p-4 font-black text-sm ${st.total_marks === 0 ? (isDarkMode ? 'text-rose-400' : 'text-rose-600') : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')}`}>
+                                                {st.total_marks} / {st.max_marks}
+                                            </td>
+                                            <td className={`p-4 font-black text-sm ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                                {st.full_exam_total_marks !== undefined ? st.full_exam_total_marks : st.total_marks} / {st.full_exam_max_marks !== undefined ? st.full_exam_max_marks : st.max_marks}
+                                            </td>
+                                            <td className={`p-4 font-bold ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>{st.percentage}%</td>
+                                            <td className="p-4">
+                                                <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                                                    {Object.entries(st.subject_breakdown || {}).map(([sub, score]) => (
+                                                        <span key={sub} className={`px-2 py-0.5 rounded border font-mono font-bold ${score === 0 ? (isDarkMode ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-600') : (isDarkMode ? 'bg-slate-800 border-white/10 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700')}`}>
+                                                            {sub.slice(0, 3)}: {score}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td className={`p-4 font-black ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{st.percentile} %ile</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 };

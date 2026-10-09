@@ -612,31 +612,9 @@ def topper_rank_view(request):
         db_error = str(e)
         print(f"[topper_rank_view] Exception: {e}")
 
-    if not toppers_list:
-        target_center = center_filter or "Dumdum Center"
-        target_batch = batch_filter or "Batch A"
-        target_subject = subject_filter or "Physics"
-
-        published_exams = [
-            {'id': 115, 'name': '2026_27 JEE MAIN PHASE TEST 02', 'total_marks': 300, 'submissions_count': 378},
-            {'id': 148, 'name': '2026_27 NEET PHASE TEST 02 XII', 'total_marks': 720, 'submissions_count': 331},
-            {'id': 105, 'name': '2026_27 NEET PHASE TEST 01', 'total_marks': 720, 'submissions_count': 309},
-        ]
-        selected_test_id = 115
-        selected_test_name = '2026_27 JEE MAIN PHASE TEST 02'
-        selected_test_max_marks = 300
-
-        all_dataset = [
-            {"rank": 1, "student_name": "Aarav Ganguly", "roll_no": "PF-2026-0042", "batch": "MED-12A", "center": "Kolkata Central", "total_marks": 288, "max_marks": 300, "percentage": 96.00, "subject_breakdown": {"Physics": 96, "Chemistry": 94, "Mathematics": 98}, "percentile": 99.98, "is_real_data": False},
-            {"rank": 2, "student_name": "Abhinav Mukhopadhyay", "roll_no": "PF-2026-0055", "batch": target_batch if scope in ['batch', 'center'] else "Batch A", "center": target_center if scope in ['center', 'batch'] else "Dumdum Center", "total_marks": 282, "max_marks": 300, "percentage": 94.00, "subject_breakdown": {target_subject: 96, "Chemistry": 92, "Mathematics": 94}, "percentile": 99.92, "is_real_data": False},
-            {"rank": 3, "student_name": "Diya Sengupta", "roll_no": "PF-2026-0089", "batch": "MED-12A", "center": "Durgapur", "total_marks": 278, "max_marks": 300, "percentage": 92.67, "subject_breakdown": {"Physics": 92, "Chemistry": 90, "Mathematics": 96}, "percentile": 99.85, "is_real_data": False},
-            {"rank": 4, "student_name": "Devjyoti Paul", "roll_no": "PF-2026-0098", "batch": target_batch if scope in ['batch', 'center'] else "Batch A", "center": target_center if scope in ['center', 'batch'] else "Dumdum Center", "total_marks": 274, "max_marks": 300, "percentage": 91.33, "subject_breakdown": {target_subject: 90, "Chemistry": 90, "Mathematics": 94}, "percentile": 99.80, "is_real_data": False},
-        ]
-        toppers_list = all_dataset
-
     return Response({
         'status': 'success',
-        'is_real_data': any(t.get('is_real_data', False) for t in toppers_list),
+        'is_real_data': bool(toppers_list),
         'published_exams': published_exams,
         'selected_test_id': selected_test_id,
         'selected_test_name': selected_test_name,
