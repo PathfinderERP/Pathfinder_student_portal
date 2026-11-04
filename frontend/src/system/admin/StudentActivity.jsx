@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
 import {
     Search, Filter, ChevronLeft, ChevronRight, Activity, Clock, FileText, RotateCcw,
-    MonitorPlay, Download, RefreshCw, CheckCircle2, Timer, Eye, X
+    MonitorPlay, Download, RefreshCw, CheckCircle2, Timer, Eye, X, FileSpreadsheet
 } from 'lucide-react';
 import MultiSelectDropdown from '../../components/common/MultiSelectDropdown';
 import ResultReport from '../../pages/student/components/ResultReport';
@@ -66,6 +67,34 @@ const getStudentStatus = (student) => {
         ['ACTIVE', 'ADMITTED', 'ENROLLED', 'ONGOING'].includes(String(value).trim().toUpperCase())
     );
     return active === true ? 'ACTIVE' : active ? String(active).trim().toUpperCase() : '';
+};
+
+const getStudyTabStats = (sessions = []) => {
+    const byTab = {};
+    sessions.forEach(session => {
+        const duration = Number(session.duration) || 0;
+        const tab = session.path
+            ? session.path.replace('StudentPortal/', '').split('/')[0] || 'Dashboard'
+            : 'Portal';
+        byTab[tab] = (byTab[tab] || 0) + duration;
+    });
+    const totalSeconds = Object.values(byTab).reduce((sum, seconds) => sum + seconds, 0);
+    return {
+        totalSeconds,
+        tabs: Object.entries(byTab).reduce((result, [tab, seconds]) => {
+            result[tab] = {
+                minutes: Math.round((seconds / 60) * 10) / 10,
+                percentage: totalSeconds ? Math.round((seconds / totalSeconds) * 1000) / 10 : 0
+            };
+            return result;
+        }, {})
+    };
+};
+
+const formatExportDate = (value) => {
+    if (!value) return 'Never';
+    const date = parseDate(value);
+    return date && !Number.isNaN(date.getTime()) ? date.toLocaleString('en-IN') : String(value);
 };
 
 // ── Subject Analysis Panel ────────────────────────────────────────────────────
@@ -900,6 +929,7 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
     });
     const [showFilters, setShowFilters] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
+    const [exportingExcel, setExportingExcel] = useState(false);
 
     // Auth and Activity Loading
     const { token, getApiUrl } = useAuth();
@@ -1033,6 +1063,76 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
         setCurrentPage(1);
     };
 
+    const exportActivityExcel = useCallback(async () => {
+        if (!filteredStudents.length || exportingExcel) return;
+        setExportingExcel(true);
+        try {
+            const apiUrl = getApiUrl();
+            const headers = { Authorization: `Bearer ${token}` };
+            const rows = [];
+            let nextIndex = 0;
+            const worker = async () => {
+                while (nextIndex < filteredStudents.length) {
+                    const index = nextIndex++;
+                    const student = filteredStudents[index];
+                    const admissionNumber = student.admissionNumber;
+                    const details = getStudentDetails(student);
+                    let summary = activityData[admissionNumber] || {};
+                    try {
+                        if (!activityData[admissionNumber]) {
+                            const summaryResponse = await axios.get(
+                                `${apiUrl}/api/admin/student-activity-summary/${admissionNumber}/`,
+                                { params: { erp_id: student.student?._id || student._id }, headers }
+                            );
+                            summary = summaryResponse.data || {};
+                        }
+                        const sessionsResponse = await axios.get(
+                            `${apiUrl}/api/admin/student-activity-detail/${admissionNumber}/`,
+                            { params: { type: 'study_time', erp_id: student.student?._id || student._id }, headers }
+                        );
+                        const study = getStudyTabStats(sessionsResponse.data || []);
+                        rows[index] = {
+                            'Name': details.studentName || student.studentName || 'Unknown',
+                            'Enrolment No': admissionNumber || '',
+                            'Mobile No': details.mobileNum || '',
+                            'Course': student.course?.courseName || '',
+                            'Centre': getStudentCentre(student),
+                            'Total App Login': summary.loginCount || 0,
+                            'Video Watched': summary.videosWatched || 0,
+                            'Test Taken': `${summary.testsTaken || 0}/${summary.testsTotal || 0}`,
+                            'Attendance': summary.attendanceTotal ? `${summary.attendancePresent || 0}/${summary.attendanceTotal}` : '-',
+                            'Study Time (minutes)': Math.round((study.totalSeconds / 60) * 10) / 10,
+                            'Last Active': formatExportDate(summary.lastActive),
+                            ...Object.entries(study.tabs).reduce((result, [tab, values]) => ({
+                                ...result,
+                                [`${tab} - Minutes`]: values.minutes,
+                                [`${tab} - Percentage`]: `${values.percentage}%`
+                            }), {})
+                        };
+                    } catch (error) {
+                        console.error(`Failed to export activity for ${admissionNumber}:`, error);
+                        rows[index] = {
+                            'Name': details.studentName || student.studentName || 'Unknown',
+                            'Enrolment No': admissionNumber || '',
+                            'Mobile No': details.mobileNum || '',
+                            'Course': student.course?.courseName || '',
+                            'Centre': getStudentCentre(student),
+                            'Export Status': 'Activity data unavailable'
+                        };
+                    }
+                }
+            };
+            await Promise.all(Array.from({ length: Math.min(6, filteredStudents.length) }, worker));
+            const workbook = XLSX.utils.book_new();
+            const worksheet = XLSX.utils.json_to_sheet(rows);
+            worksheet['!cols'] = Object.keys(rows[0] || {}).map(() => ({ wch: 20 }));
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Student Activity');
+            XLSX.writeFile(workbook, `Student_Activity_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        } finally {
+            setExportingExcel(false);
+        }
+    }, [filteredStudents, exportingExcel, activityData, getApiUrl]);
+
     if (isERPLoading && activeStudents.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-64">
@@ -1086,6 +1186,14 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                             className={`p-2 rounded-[5px] border transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-orange-500/10 border-orange-500/20 text-orange-500 hover:bg-orange-500/20' : 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100'}`}
                         >
                             <Download size={18} />
+                        </button>
+                        <button
+                            onClick={exportActivityExcel}
+                            disabled={exportingExcel || filteredStudents.length === 0}
+                            title="Export filtered student activity to Excel"
+                            className={`p-2 rounded-[5px] border transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100'}`}
+                        >
+                            <FileSpreadsheet size={18} className={exportingExcel ? 'animate-pulse' : ''} />
                         </button>
                         <button
                             onClick={() => loadAllDisplayedActivity(true)}
