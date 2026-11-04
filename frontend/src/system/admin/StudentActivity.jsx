@@ -19,6 +19,55 @@ const parseDate = (str) => {
     return new Date(formatted);
 };
 
+const getStudentDetails = (student) => student.student?.studentsDetails?.[0] || student.studentsDetails?.[0] || {};
+
+const getStudentStatus = (student) => {
+    const details = getStudentDetails(student);
+    const studentProfile = student.student || {};
+    const admission = student.admission || {};
+    const values = [
+        student.admissionStatus,
+        student.admission_status,
+        student.studentStatus,
+        student.student_status,
+        student.enrollmentStatus,
+        student.enrollment_status,
+        student.status,
+        student.isActive,
+        student.is_active,
+        admission.status,
+        admission.admissionStatus,
+        admission.isActive,
+        admission.is_active,
+        studentProfile.status,
+        studentProfile.admissionStatus,
+        studentProfile.studentStatus,
+        studentProfile.isActive,
+        studentProfile.is_active,
+        details.admissionStatus,
+        details.admission_status,
+        details.studentStatus,
+        details.student_status,
+        details.enrollmentStatus,
+        details.enrollment_status,
+        details.status,
+        details.isActive,
+        details.is_active
+    ].filter(value => value !== undefined && value !== null && value !== '');
+
+    const inactive = values.some(value =>
+        value === false ||
+        ['INACTIVE', 'INACTIVE STUDENT', 'DROPPED', 'SUSPENDED', 'LEFT', 'CANCELLED', 'DELETED'].includes(String(value).trim().toUpperCase())
+    );
+    if (inactive) return 'INACTIVE';
+
+    const active = values.find(value =>
+        value === true ||
+        ['ACTIVE', 'ADMITTED', 'ENROLLED', 'ONGOING'].includes(String(value).trim().toUpperCase())
+    );
+    return active === true ? 'ACTIVE' : active ? String(active).trim().toUpperCase() : '';
+};
+
 // ── Subject Analysis Panel ────────────────────────────────────────────────────
 const SubjectAnalysisPanel = ({ stats, dark }) => {
     if (!stats || stats.length === 0) return null;
@@ -857,6 +906,14 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
     const [activityData, setActivityData] = useState({});
     const [loadingActivity, setLoadingActivity] = useState({});
 
+    const getStudentCentre = (student) => String(
+        student.centre || student.centre_name || student.centreName || student.center || ''
+    ).trim();
+
+    const isActiveStudent = (student) => {
+        return ['ACTIVE', 'ADMITTED', 'ENROLLED', 'ONGOING'].includes(getStudentStatus(student));
+    };
+
     const loadActivity = useCallback(async (student) => {
         const admissionNumber = student.admissionNumber;
         const erpId = student.student?._id || student._id;
@@ -882,10 +939,20 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
     const [itemsPerPage, setItemsPerPage] = useState(50);
 
     const activeStudents = useMemo(() => {
-        return studentsData.filter(student => {
-            const name = student.student?.studentsDetails?.[0]?.studentName || student.studentName;
-            return name && name.trim() !== '';
+        const byAdmission = new Map();
+        const inactiveAdmissions = new Set();
+
+        studentsData.forEach(student => {
+            const admissionNumber = String(student.admissionNumber || '').trim().toUpperCase();
+            const name = getStudentDetails(student).studentName || student.studentName;
+            if (!admissionNumber || !name || !String(name).trim() || !getStudentCentre(student)) return;
+            if (getStudentStatus(student) === 'INACTIVE') inactiveAdmissions.add(admissionNumber);
+            if (!byAdmission.has(admissionNumber)) byAdmission.set(admissionNumber, student);
         });
+
+        return [...byAdmission.entries()]
+            .filter(([admissionNumber, student]) => !inactiveAdmissions.has(admissionNumber) && isActiveStudent(student))
+            .map(([, student]) => student);
     }, [studentsData]);
 
     const extractExamTag = (s) => {
@@ -906,8 +973,9 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
             const mobile = (student.student?.studentsDetails?.[0]?.mobileNum || '').toLowerCase();
             const admissionNumber = (student.admissionNumber || '').toLowerCase();
             const courseName = student.course?.courseName || '';
-            const centerName = student.centre || '';
-            const status = student.admissionStatus || '';
+            const centerName = getStudentCentre(student);
+            const rawStatus = getStudentStatus(student);
+            const status = rawStatus === 'ADMITTED' ? 'ACTIVE' : rawStatus;
             const className = student.class?.name || student.student?.studentsDetails?.[0]?.className || student.class || '';
             const examTag = extractExamTag(student) || '';
 
@@ -1127,7 +1195,7 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                         <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-200'}`}>
                             {displayedStudents.length > 0 ? (
                                 displayedStudents.map((student, idx) => (
-                                    <tr key={student.id || idx} className={`transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+                                    <tr key={student.admissionNumber || student.id || idx} className={`transition-colors ${isDarkMode ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                                         <td className="px-4 py-3">
                                             <div className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{student.student?.studentsDetails?.[0]?.studentName || student.studentName || 'Unknown'}</div>
                                             <div className="text-xs text-slate-500">
@@ -1141,8 +1209,8 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                                             <div className="text-[10px] text-slate-500 uppercase tracking-wide">{student.centre || 'N/A'}</div>
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full ${student.admissionStatus === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                                {student.admissionStatus || 'N/A'}
+                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full ${getStudentStatus(student) === 'ACTIVE' || getStudentStatus(student) === 'ADMITTED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                {getStudentStatus(student) || 'N/A'}
                                             </span>
                                         </td>
                                         {activityData[student.admissionNumber] ? (
