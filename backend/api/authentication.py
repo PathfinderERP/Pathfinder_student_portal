@@ -162,6 +162,15 @@ class ERPStudentBackend(BaseBackend):
                         if adm_no and not user.admission_number:
                             user.admission_number = adm_no
 
+                        # 5. Sync Academic Metadata & Centre from ERP login
+                        try:
+                            from api.erp_views import _sync_user_to_erp
+                            _sync_user_to_erp(user, student_data)
+                        except Exception as e_sync:
+                            print(f"[WARN] Secondary _sync_user_to_erp failed: {e_sync}")
+
+                        if getattr(user, 'assigned_centres', None) is None:
+                            user.assigned_centres = []
                         user.save()
                         print(f"[OK] Fully synced {username} from ERP login response")
                     except Exception as e:

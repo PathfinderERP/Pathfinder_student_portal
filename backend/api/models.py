@@ -10,6 +10,14 @@ class SafeJSONField(djongo_models.JSONField):
     def get_internal_type(self):
         return 'JSONField'
 
+    def pre_save(self, model_instance, add):
+        val = getattr(model_instance, self.attname, None)
+        if val is None:
+            default = self.get_default()
+            val = default() if callable(default) else (default or ({} if self.default == dict else []))
+            setattr(model_instance, self.attname, val)
+        return super().pre_save(model_instance, add)
+
 class CustomUser(AbstractUser):
     _id = djongo_models.ObjectIdField(primary_key=True)
     USER_TYPE_CHOICES = (
