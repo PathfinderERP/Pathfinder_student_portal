@@ -940,6 +940,18 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
         student.centre || student.centre_name || student.centreName || student.center || ''
     ).trim();
 
+    const getStudentClass = (student) => {
+        let val = student.class?.name || student.student?.studentsDetails?.[0]?.className || student.class || '';
+        if (val && typeof val === 'object') {
+            val = val.name || val.className || val.class || '';
+        }
+        if (!val && Array.isArray(student.student?.examSchema)) {
+            const schemaWithClass = student.student.examSchema.find(ex => ex?.class && ex.class !== 'ALL CLASS');
+            if (schemaWithClass) val = schemaWithClass.class;
+        }
+        return String(val || '').trim();
+    };
+
     const isActiveStudent = (student) => {
         return ['ACTIVE', 'ADMITTED', 'ENROLLED', 'ONGOING'].includes(getStudentStatus(student));
     };
@@ -1095,6 +1107,7 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                             'Name': details.studentName || student.studentName || 'Unknown',
                             'Enrolment No': admissionNumber || '',
                             'Mobile No': details.mobileNum || '',
+                            'Class': getStudentClass(student),
                             'Course': student.course?.courseName || '',
                             'Centre': getStudentCentre(student),
                             'Total App Login': summary.loginCount || 0,
@@ -1115,6 +1128,7 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
                             'Name': details.studentName || student.studentName || 'Unknown',
                             'Enrolment No': admissionNumber || '',
                             'Mobile No': details.mobileNum || '',
+                            'Class': getStudentClass(student),
                             'Course': student.course?.courseName || '',
                             'Centre': getStudentCentre(student),
                             'Export Status': 'Activity data unavailable'
