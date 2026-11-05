@@ -7,7 +7,7 @@ from .views import (
     StudyTaskViewSet, NoticeViewSet, UserSearchView, 
     StudentPsychometricProfileView, StudentStudyPlannerConfigView, AdminStudentPsychometricProfileView, AdminAllPsychometricProfilesView,
     UserActivityLogViewSet, get_student_activity_analytics, get_student_curriculum_progress,
-    get_swot_analysis, ClassFeedbackViewSet, get_admin_student_activity_summary, get_admin_student_activity_detail,
+    get_swot_analysis, ClassFeedbackViewSet, get_admin_student_activity_summary, get_admin_student_activity_detail, export_student_activity_excel,
     get_admin_teacher_activity_summary, get_admin_teacher_activity_detail,
     get_teacher_performance_analytics, get_teacher_notifications
 )
@@ -77,6 +77,7 @@ urlpatterns = [
     path('admin/erp-students/', get_all_students_erp_data, name='admin-erp-students'),
     path('admin/student-activity-summary/<str:admission_number>/', get_admin_student_activity_summary, name='admin-student-activity-summary'),
     path('admin/student-activity-detail/<str:admission_number>/', get_admin_student_activity_detail, name='admin-student-activity-detail'),
+    path('admin/student-activity-export/', export_student_activity_excel, name='admin-student-activity-export'),
     path('admin/teacher-activity-summary/<str:username>/', get_admin_teacher_activity_summary, name='admin-teacher-activity-summary'),
     path('admin/teacher-activity-detail/<str:username>/', get_admin_teacher_activity_detail, name='admin-teacher-activity-detail'),
     path('admin/student-attendance/<str:admission_number>/', get_admin_student_attendance, name='admin-student-attendance'),

@@ -1443,6 +1443,8 @@ def get_admin_student_activity_summary(request, admission_number):
                     valid_records = [r for r in records if r.get('attendanceStatus', r.get('status')) not in ['Not Marked', 'Not_Marked', '', None]]
                     attendance_total = len(valid_records)
                     attendance_present = sum(1 for r in valid_records if r.get('attendanceStatus', r.get('status')) == 'Present')
+                    from django.core.cache import cache
+                    cache.set(f"att_summary_{erp_id}", (attendance_present, attendance_total), 86400)
         except Exception as e:
             print(f"[ATTENDANCE] Error fetching attendance for {erp_id}: {e}")
 
@@ -2797,3 +2799,262 @@ def get_teacher_notifications(request):
     }, status=200)
 
 
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def export_student_activity_excel(request):
+    """
+    High-performance bulk export for Student Activity.
+    Processes thousands of students in a single pass using MongoDB bulk aggregations,
+    generating the Excel file in seconds instead of thousands of individual HTTP requests.
+    """
+    user = request.user
+    if user.user_type not in ['superadmin', 'admin', 'teacher', 'faculty', 'staff']:
+        return response.Response({"error": "Unauthorized"}, status=403)
+
+    students_data = request.data.get('students', [])
+    if not students_data or not isinstance(students_data, list):
+        return response.Response({"error": "No students provided for export"}, status=400)
+
+    from django.db.models import Q
+    from django.contrib.auth import get_user_model
+    from django.core.cache import cache
+    from django.http import HttpResponse
+    from collections import defaultdict
+    from datetime import datetime
+    import openpyxl
+    import io
+    from .db_utils import get_db
+    from centres.models import Centre
+    from tests.models import Test
+
+    User = get_user_model()
+    db = get_db()
+    if db is None:
+        return response.Response({"error": "Database unavailable"}, status=500)
+
+    # 1. Collect admission numbers
+    adm_list = [str(s.get('admission_number') or '').strip() for s in students_data if s.get('admission_number')]
+    
+    # 2. Bulk fetch local user records
+    user_qs = list(User.objects.filter(
+        Q(admission_number__in=adm_list) | Q(username__in=adm_list)
+    ).values('_id', 'username', 'admission_number', 'centre_code', 'centre_name', 'class_level_id', 'target_exam_id', 'session_id'))
+
+    user_by_adm = {}
+    uids = []
+    usernames = []
+    for u in user_qs:
+        uid = u['_id']
+        uids.append(uid)
+        uname = u.get('username')
+        if uname:
+            usernames.append(uname)
+            user_by_adm[uname.upper().strip()] = u
+        adm = u.get('admission_number')
+        if adm:
+            user_by_adm[adm.upper().strip()] = u
+
+    # 3. Bulk MongoDB Aggregations
+    # a. Logins
+    login_map = {}
+    if usernames:
+        login_res = list(db['api_loginlog'].aggregate([
+            {'$match': {'username': {'$in': usernames}}},
+            {'$group': {'_id': '$username', 'count': {'$sum': 1}}}
+        ]))
+        login_map = {item['_id']: item['count'] for item in login_res}
+
+    # b. Test submissions
+    sub_map = {}
+    if uids:
+        sub_res = list(db['tests_testsubmission'].aggregate([
+            {'$match': {'student_id': {'$in': uids}}},
+            {'$group': {'_id': '$student_id', 'tests_taken': {'$sum': 1}, 'time_spent': {'$sum': '$time_spent'}}}
+        ]))
+        sub_map = {str(item['_id']): item for item in sub_res}
+
+    # c. User activity meta (last active & videos watched)
+    act_meta_map = {}
+    if uids:
+        act_meta_res = list(db['api_useractivitylog'].aggregate([
+            {'$match': {'user_id': {'$in': uids}}},
+            {'$group': {
+                '_id': '$user_id',
+                'last_active': {'$max': '$timestamp'},
+                'videos': {'$addToSet': {'$cond': [{'$in': ['$activity_type', ['video_complete', 'video_play']]}, '$metadata.video_id', None]}}
+            }}
+        ]))
+        for item in act_meta_res:
+            vids = {v for v in item.get('videos', []) if v}
+            act_meta_map[str(item['_id'])] = {
+                'last_active': item.get('last_active'),
+                'videos_watched': len(vids)
+            }
+
+    # d. Heartbeat durations grouped by tab
+    user_tab_seconds = defaultdict(lambda: defaultdict(int))
+    all_tab_names = set()
+    if uids:
+        heartbeats = list(db['api_useractivitylog'].aggregate([
+            {'$match': {'user_id': {'$in': uids}, 'activity_type': 'heartbeat'}},
+            {'$group': {
+                '_id': {'user_id': '$user_id', 'path': '$path'},
+                'duration': {'$sum': '$duration'}
+            }}
+        ]))
+        for h in heartbeats:
+            uid_str = str(h['_id']['user_id'])
+            path = h['_id'].get('path') or ''
+            tab = path.replace('StudentPortal/', '').split('/')[0] if path else 'Dashboard'
+            if not tab:
+                tab = 'Portal'
+            user_tab_seconds[uid_str][tab] += int(h.get('duration') or 0)
+            all_tab_names.add(tab)
+
+    priority_order = [
+        'Dashboard', 'Nexus Hub', 'My Profile', 'Classes', 'Attendance', 
+        'Exams', 'Results', 'Study Materials', 'Video Content', 'DPP Questions',
+        'Notes', 'Scholarlab', 'Performance', 'SWOT Analysis', 'Advanced Analytics',
+        'Study Planner', 'Doubts', 'Notice Board', 'Grievances'
+    ]
+    sorted_tabs = [t for t in priority_order if t in all_tab_names] + sorted([t for t in all_tab_names if t not in priority_order])
+
+    # Memoizer for eligible test count
+    test_count_cache = {}
+    def get_eligible_test_count(centre_name, centre_code, class_level_id, target_exam_id, session_id):
+        key = (centre_name or '', centre_code or '', class_level_id, target_exam_id, session_id)
+        if key in test_count_cache:
+            return test_count_cache[key]
+        c_code = str(centre_code or '').lower().strip()
+        c_name = str(centre_name or '').lower().strip()
+        centre_test_ids = []
+        if c_code or c_name:
+            matching_ids = list(Centre.objects.filter(Q(code__iexact=c_code) | Q(name__iexact=c_name)).values_list('_id', flat=True))
+            if matching_ids:
+                centre_test_ids = list(Test.objects.filter(centres__in=matching_ids).values_list('pk', flat=True))
+        if class_level_id:
+            qs = Test.objects.filter(class_level_id=class_level_id)
+        else:
+            qs = Test.objects.filter(class_level__isnull=True)
+        if target_exam_id:
+            te_ids = list(Test.objects.filter(target_exams=target_exam_id).values_list('pk', flat=True))
+            qs = qs.filter(pk__in=te_ids)
+        if session_id:
+            s_ids = list(Test.objects.filter(sessions=session_id).values_list('pk', flat=True))
+            qs = qs.filter(Q(exam_type__name__icontains='STUDY PLANNER') | Q(exam_type__name__icontains='STUDY_PLANNER') | Q(session_id=session_id) | Q(pk__in=s_ids))
+        acad_ids = list(qs.values_list('pk', flat=True))
+        cnt = len(set(str(pk) for pk in centre_test_ids) & set(str(pk) for pk in acad_ids))
+        test_count_cache[key] = cnt
+        return cnt
+
+    def format_date(dt):
+        if not dt:
+            return 'Never'
+        if hasattr(dt, 'strftime'):
+            return dt.strftime('%d/%m/%Y, %I:%M:%S %p').lower()
+        return str(dt)
+
+    # 4. Generate Excel Sheet with OpenPyXL
+    wb = openpyxl.Workbook(write_only=True)
+    ws = wb.create_sheet('Student Activity')
+
+    base_headers = [
+        'Name', 'Enrolment No', 'Mobile No', 'Class', 'Course', 'Centre',
+        'Total App Login', 'Video Watched', 'Test Taken', 'Attendance',
+        'Study Time (minutes)', 'Last Active'
+    ]
+    tab_headers = []
+    for tab in sorted_tabs:
+        tab_headers.append(f"{tab} - Minutes")
+        tab_headers.append(f"{tab} - Percentage")
+
+    ws.append(base_headers + tab_headers)
+
+    for student in students_data:
+        adm = str(student.get('admission_number') or '').strip().upper()
+        name = student.get('name') or 'Unknown'
+        mobile = student.get('mobile') or ''
+        cls = student.get('class_name') or ''
+        course = student.get('course_name') or ''
+        centre = student.get('centre') or ''
+
+        # Match user
+        user_record = user_by_adm.get(adm)
+        uid_str = str(user_record['_id']) if user_record else None
+        uname = user_record.get('username') if user_record else None
+
+        # Logins
+        login_count = 0
+        if uname and uname in login_map:
+            login_count = login_map[uname]
+        elif adm in login_map:
+            login_count = login_map[adm]
+
+        # Activity metadata
+        act_info = act_meta_map.get(uid_str, {})
+        videos_watched = act_info.get('videos_watched', 0)
+        last_active = format_date(act_info.get('last_active'))
+
+        # Tests
+        sub_info = sub_map.get(uid_str, {})
+        tests_taken = sub_info.get('tests_taken', 0)
+        tests_time = sub_info.get('time_spent', 0)
+        total_tests = 0
+        if user_record:
+            total_tests = get_eligible_test_count(
+                user_record.get('centre_name'),
+                user_record.get('centre_code'),
+                user_record.get('class_level_id'),
+                user_record.get('target_exam_id'),
+                user_record.get('session_id')
+            )
+        test_str = f"{tests_taken}/{total_tests}"
+
+        # Attendance
+        attendance = student.get('attendance')
+        if not attendance:
+            erp_id = student.get('erp_id')
+            if erp_id:
+                cached_att = cache.get(f"att_summary_{erp_id}")
+                if cached_att and isinstance(cached_att, (list, tuple)) and len(cached_att) >= 2:
+                    attendance = f"{cached_att[0]}/{cached_att[1]}"
+        if not attendance:
+            attendance = '-'
+
+        # Tabs & Study Time
+        student_tabs = user_tab_seconds.get(uid_str, {})
+        heartbeat_secs = sum(student_tabs.values())
+        total_seconds = heartbeat_secs + tests_time
+        total_minutes = round(total_seconds / 60.0, 1)
+
+        row = [
+            name, adm, mobile, cls, course, centre,
+            login_count, videos_watched, test_str, attendance,
+            total_minutes, last_active
+        ]
+
+        # Tab columns
+        for tab in sorted_tabs:
+            tab_secs = student_tabs.get(tab, 0)
+            if tab == 'Exams' and tests_time > 0 and 'Exams' not in student_tabs:
+                tab_secs = tests_time
+            tab_mins = round(tab_secs / 60.0, 1)
+            pct_str = f"{round((tab_secs / total_seconds) * 100, 1)}%" if total_seconds > 0 else "0%"
+            row.append(tab_mins)
+            row.append(pct_str)
+
+        ws.append(row)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"Student_Activity_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+    response_obj = HttpResponse(
+        buf.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response_obj['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response_obj

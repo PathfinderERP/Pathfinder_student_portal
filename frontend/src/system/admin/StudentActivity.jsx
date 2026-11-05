@@ -1080,72 +1080,51 @@ const StudentActivity = ({ studentsData = [], isERPLoading, isDarkMode, onRefres
         setExportingExcel(true);
         try {
             const apiUrl = getApiUrl();
-            const headers = { Authorization: `Bearer ${token}` };
-            const rows = [];
-            let nextIndex = 0;
-            const worker = async () => {
-                while (nextIndex < filteredStudents.length) {
-                    const index = nextIndex++;
-                    const student = filteredStudents[index];
-                    const admissionNumber = student.admissionNumber;
+            const payload = {
+                students: filteredStudents.map(student => {
                     const details = getStudentDetails(student);
-                    let summary = activityData[admissionNumber] || {};
-                    try {
-                        if (!activityData[admissionNumber]) {
-                            const summaryResponse = await axios.get(
-                                `${apiUrl}/api/admin/student-activity-summary/${admissionNumber}/`,
-                                { params: { erp_id: student.student?._id || student._id }, headers }
-                            );
-                            summary = summaryResponse.data || {};
-                        }
-                        const sessionsResponse = await axios.get(
-                            `${apiUrl}/api/admin/student-activity-detail/${admissionNumber}/`,
-                            { params: { type: 'study_time', erp_id: student.student?._id || student._id }, headers }
-                        );
-                        const study = getStudyTabStats(sessionsResponse.data || []);
-                        rows[index] = {
-                            'Name': details.studentName || student.studentName || 'Unknown',
-                            'Enrolment No': admissionNumber || '',
-                            'Mobile No': details.mobileNum || '',
-                            'Class': getStudentClass(student),
-                            'Course': student.course?.courseName || '',
-                            'Centre': getStudentCentre(student),
-                            'Total App Login': summary.loginCount || 0,
-                            'Video Watched': summary.videosWatched || 0,
-                            'Test Taken': `${summary.testsTaken || 0}/${summary.testsTotal || 0}`,
-                            'Attendance': summary.attendanceTotal ? `${summary.attendancePresent || 0}/${summary.attendanceTotal}` : '-',
-                            'Study Time (minutes)': Math.round((study.totalSeconds / 60) * 10) / 10,
-                            'Last Active': formatExportDate(summary.lastActive),
-                            ...Object.entries(study.tabs).reduce((result, [tab, values]) => ({
-                                ...result,
-                                [`${tab} - Minutes`]: values.minutes,
-                                [`${tab} - Percentage`]: `${values.percentage}%`
-                            }), {})
-                        };
-                    } catch (error) {
-                        console.error(`Failed to export activity for ${admissionNumber}:`, error);
-                        rows[index] = {
-                            'Name': details.studentName || student.studentName || 'Unknown',
-                            'Enrolment No': admissionNumber || '',
-                            'Mobile No': details.mobileNum || '',
-                            'Class': getStudentClass(student),
-                            'Course': student.course?.courseName || '',
-                            'Centre': getStudentCentre(student),
-                            'Export Status': 'Activity data unavailable'
-                        };
-                    }
-                }
+                    const adm = student.admissionNumber || '';
+                    const cached = activityData[adm];
+                    return {
+                        admission_number: adm,
+                        name: details.studentName || student.studentName || 'Unknown',
+                        mobile: details.mobileNum || '',
+                        class_name: getStudentClass(student),
+                        course_name: student.course?.courseName || '',
+                        centre: getStudentCentre(student),
+                        erp_id: student.student?._id || student._id,
+                        attendance: cached?.attendanceTotal ? `${cached.attendancePresent || 0}/${cached.attendanceTotal}` : null
+                    };
+                })
             };
-            await Promise.all(Array.from({ length: Math.min(6, filteredStudents.length) }, worker));
-            const workbook = XLSX.utils.book_new();
-            const worksheet = XLSX.utils.json_to_sheet(rows);
-            worksheet['!cols'] = Object.keys(rows[0] || {}).map(() => ({ wch: 20 }));
-            XLSX.utils.book_append_sheet(workbook, worksheet, 'Student Activity');
-            XLSX.writeFile(workbook, `Student_Activity_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+            const response = await axios.post(
+                `${apiUrl}/api/admin/student-activity-export/`,
+                payload,
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                    responseType: 'blob'
+                }
+            );
+
+            const blob = new Blob([response.data], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', `Student_Activity_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (error) {
+            console.error('Failed to export activity to Excel:', error);
+            alert('Failed to export activity to Excel. Please try again.');
         } finally {
             setExportingExcel(false);
         }
-    }, [filteredStudents, exportingExcel, activityData, getApiUrl]);
+    }, [filteredStudents, exportingExcel, activityData, getApiUrl, token]);
 
     if (isERPLoading && activeStudents.length === 0) {
         return (
