@@ -583,6 +583,8 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
     const [jumpToPage, setJumpToPage] = useState('');
+    const [targetQuestionId, setTargetQuestionId] = useState(null);
+    const [justUpdatedId, setJustUpdatedId] = useState(null);
 
     // Media Library State
     const [images, setImages] = useState([]);
@@ -617,6 +619,15 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             }
         };
     }, [filters.search]);
+
+    // Auto-clear update badge after 5 seconds
+    useEffect(() => {
+        if (!justUpdatedId) return;
+        const timer = setTimeout(() => {
+            setJustUpdatedId(null);
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, [justUpdatedId]);
 
     // Filtered Questions Logic
     const filteredQuestions = useMemo(() => {
@@ -755,6 +766,39 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             alert(`Please enter a valid page number between 1 and ${totalPages}`);
         }
     };
+
+    // Keep user on edited/focused question after returning to repository
+    useEffect(() => {
+        if (view === 'repository' && targetQuestionId) {
+            const targetIdx = filteredQuestions.findIndex(
+                q => String(q.id || q._id) === String(targetQuestionId)
+            );
+            if (targetIdx !== -1) {
+                const targetPage = Math.floor(targetIdx / itemsPerPage) + 1;
+                if (targetPage !== currentPage) {
+                    setCurrentPage(targetPage);
+                    return;
+                }
+            }
+
+            const scrollTimer = setTimeout(() => {
+                const el = document.getElementById(`question-${targetQuestionId}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTargetQuestionId(null);
+                }
+            }, 150);
+
+            const fallbackTimer = setTimeout(() => {
+                setTargetQuestionId(null);
+            }, 3000);
+
+            return () => {
+                clearTimeout(scrollTimer);
+                clearTimeout(fallbackTimer);
+            };
+        }
+    }, [view, targetQuestionId, filteredQuestions, itemsPerPage, currentPage]);
 
     const createNewQuestion = useCallback(() => ({
         tempId: Date.now() + Math.random(),
@@ -1959,6 +2003,10 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             return;
         }
 
+        const isEditing = !!form.id;
+        const editedQuestionId = form.id;
+        let updatedQuestionData = null;
+
         setIsSubmitting(true);
         try {
             const config = getAuthConfig();
@@ -2024,23 +2072,37 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                 };
 
                 let result;
-                if (form.id && q.tempId === form.id) {
-                    result = await axios.patch(`${apiUrl}/api/questions/${form.id}/`, payload, config);
-                    setQuestions(prev => prev.map(qu => (qu.id === form.id || qu._id === form.id) ? result.data : qu));
+                if (isEditing && q.tempId === editedQuestionId) {
+                    result = await axios.patch(`${apiUrl}/api/questions/${editedQuestionId}/`, payload, config);
+                    updatedQuestionData = result.data;
+                    setQuestions(prev => prev.map(qu => (qu.id === editedQuestionId || qu._id === editedQuestionId) ? result.data : qu));
+                    if (globalQuestionsCache) {
+                        globalQuestionsCache = globalQuestionsCache.map(qu => (qu.id === editedQuestionId || qu._id === editedQuestionId) ? result.data : qu);
+                    }
                 } else {
                     result = await axios.post(`${apiUrl}/api/questions/`, payload, config);
                     setQuestions(prev => [result.data, ...prev]);
+                    if (globalQuestionsCache) {
+                        globalQuestionsCache = [result.data, ...globalQuestionsCache];
+                    }
                 }
                 successCount++;
             }
 
-            alert(`${successCount} Question(s) ${form.id ? 'updated' : 'added'} successfully!`);
-            if (!form.id) {
+            alert(`${successCount} Question(s) ${isEditing ? 'updated' : 'added'} successfully!`);
+            if (!isEditing) {
                 localStorage.removeItem('question_draft');
                 setAvailableDraft(null);
             }
             resetForm();
-            if (form.id) setView('repository');
+            if (isEditing && editedQuestionId) {
+                if (updatedQuestionData) {
+                    setSelectedQuestion(updatedQuestionData);
+                }
+                setTargetQuestionId(editedQuestionId);
+                setJustUpdatedId(editedQuestionId);
+                setView('repository');
+            }
 
         } catch (error) {
             console.error("Submission Error", error);
@@ -2692,6 +2754,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                 <div className="flex flex-col gap-4 mt-8">
                                     {paginatedQuestions.map((q, index) => {
                                         const isSelected = (selectedQuestion?.id || selectedQuestion?._id) === (q.id || q._id);
+                                        const isJustUpdated = justUpdatedId && String(justUpdatedId) === String(q.id || q._id);
                                         const serialNo = (currentPage - 1) * itemsPerPage + index + 1;
                                         const getMultiNames = (list, masterList, singleItem) => {
                                             const ids = [];
@@ -2716,6 +2779,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
 
                                         return (
                                             <div
+                                                id={`question-${q.id || q._id}`}
                                                 onClick={() => {
                                                     const currentId = q.id || q._id;
                                                     setSelectedQuestion(isSelected ? null : q);
@@ -2724,6 +2788,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                 className={`relative rounded-[5px] border transition-all cursor-pointer group flex flex-col overflow-hidden p-6
                                                     ${isDarkMode ? 'bg-white/5 border-white/5 hover:border-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]' : 'bg-slate-50 border-slate-200 hover:border-emerald-500/50 shadow-sm'} 
                                                     ${isSelected ? 'ring-2 ring-emerald-500/50' : ''}
+                                                    ${isJustUpdated ? 'ring-4 ring-orange-500 shadow-2xl transition-all duration-700' : ''}
                                                 `}
                                             >
                                                 <div className="flex flex-col lg:flex-row lg:items-center gap-8">
@@ -2782,6 +2847,12 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                     : (LEVEL_NUM_TO_KEY[String(q.difficulty_level || q.level)] || String(q.difficulty_level || q.level || 'easy')).replace('_', ' ')}
                                                             </div>
                                                         </div>
+                                                        {isJustUpdated && (
+                                                            <div className="px-2 h-14 rounded-[5px] flex flex-col items-center justify-center shrink-0 border-2 border-orange-500 bg-orange-500 text-white animate-pulse shadow-lg">
+                                                                <div className="text-[8px] font-black uppercase opacity-80 leading-none mb-0.5">STATUS</div>
+                                                                <div className="text-xs font-black uppercase">UPDATED</div>
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {/* Primary Info */}
@@ -2946,6 +3017,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                                                                         : (q.difficulty_level ? [String(q.difficulty_level)] : (q.level ? [String(q.level)] : ['easy']));
                                                                     const levels = rawLevels.map(l => LEVEL_NUM_TO_KEY[String(l)] || String(l));
 
+                                                                    setTargetQuestionId(q.id || q._id);
                                                                     setForm({
                                                                         ...form,
                                                                         id: q.id || q._id,
@@ -3060,16 +3132,26 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
             {/* Nav Header */}
             <div className="flex items-center justify-between">
                 <button
-                    onClick={() => setView('overview')}
+                    onClick={() => {
+                        if (form.id) {
+                            setTargetQuestionId(form.id);
+                            setView('repository');
+                        } else {
+                            setView('overview');
+                        }
+                    }}
                     className={`flex items-center gap-2 px-6 py-3 rounded-[5px] font-black uppercase tracking-widest text-[10px] transition-all
                         ${isDarkMode ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
                 >
                     <ArrowLeft size={16} />
-                    Back to Overview
+                    {form.id ? 'Back to Repository' : 'Back to Overview'}
                 </button>
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => {
+                            if (form.id) {
+                                setTargetQuestionId(form.id);
+                            }
                             fetchQuestions();
                             setView('repository');
                         }}
@@ -3080,7 +3162,7 @@ const QuestionBank = ({ onNavigate, isSelectionMode = false, onAssignQuestions, 
                     </button>
                     <div className="flex items-center gap-3 pl-4 border-l border-slate-200/20">
                         <div className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-ping" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Create Mode</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">{form.id ? 'Edit Mode' : 'Create Mode'}</span>
                     </div>
                 </div>
             </div>
