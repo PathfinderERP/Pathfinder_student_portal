@@ -106,15 +106,20 @@ export const useTestFilters = ({
         ];
     }, [includeAllotmentStatus]);
 
-    const completionOptions = useMemo(() => [
-        { value: '', label: 'All State' },
-        { value: 'completed', label: 'Completed' },
-        { value: 'live', label: 'Live' },
-        { value: 'scheduled', label: 'Scheduled' },
-        { value: 'not_scheduled', label: 'Not Scheduled' },
-        { value: 'ended', label: 'Ended' },
-        { value: 'not_allotted', label: 'Not Allotted' },
-    ], []);
+    const completionOptions = useMemo(() => {
+        const base = [
+            { value: '', label: 'All State' },
+            { value: 'completed', label: 'Completed' },
+            { value: 'live', label: 'Live' },
+            { value: 'scheduled', label: 'Scheduled' },
+            { value: 'not_scheduled', label: 'Not Scheduled' },
+            { value: 'ended', label: 'Ended' },
+        ];
+        if (!includeAllotmentStatus) {
+            base.push({ value: 'not_allotted', label: 'Not Allotted' });
+        }
+        return base;
+    }, [includeAllotmentStatus]);
 
     const filteredRecords = useMemo(() => {
         return tests.filter(t => {

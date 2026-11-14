@@ -320,6 +320,66 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
         triggerAlert('Excel template downloaded!', 'success');
     };
 
+    // Export Centre Allotments to Excel
+    const handleExportExcel = () => {
+        const targetList = selectedAllotmentIds.length > 0
+            ? allotments.filter(a => selectedAllotmentIds.includes(a.id))
+            : filteredAllotments;
+
+        if (!targetList || targetList.length === 0) {
+            triggerAlert('No centre allotments found to export', 'error');
+            return;
+        }
+
+        const formatDt = (dt) => {
+            if (!dt) return '---';
+            const d = new Date(dt);
+            if (isNaN(d.getTime())) return '---';
+            const yr = d.getFullYear();
+            const mo = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hr = String(d.getHours()).padStart(2, '0');
+            const mn = String(d.getMinutes()).padStart(2, '0');
+            return `${yr}-${mo}-${day} ${hr}:${mn}`;
+        };
+
+        const rows = targetList.map((a, idx) => ({
+            'SL NO': idx + 1,
+            'Centre Name': a.centre_details?.name || '---',
+            'Centre Code': a.centre_details?.code || '---',
+            'Contact Email': a.centre_details?.email || '---',
+            'Contact Phone': a.centre_details?.phone_number || '---',
+            'Start Time': formatDt(a.start_time),
+            'End Time': formatDt(a.end_time),
+            'Status': a.is_active ? 'Active' : 'Inactive',
+            'Magic Code': a.access_code || '---',
+            'Email Sent': (a.is_code_sent || a.was_sent) ? 'Sent' : 'Not Sent',
+            'Submissions': a.submission_count ?? 0
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [
+            { wch: 8 },   // SL NO
+            { wch: 28 },  // Centre Name
+            { wch: 15 },  // Centre Code
+            { wch: 32 },  // Contact Email
+            { wch: 18 },  // Contact Phone
+            { wch: 22 },  // Start Time
+            { wch: 22 },  // End Time
+            { wch: 14 },  // Status
+            { wch: 18 },  // Magic Code
+            { wch: 14 },  // Email Sent
+            { wch: 14 }   // Submissions
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Centre Allotments');
+        const safeName = (test.name || 'Test').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const dateStamp = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `${safeName}_Centre_Allotments_${dateStamp}.xlsx`);
+        triggerAlert(`Exported ${rows.length} centre allotment(s) successfully!`, 'success');
+    };
+
     // Parse Excel/CSV File
     const handleFileChange = (e) => {
         const file = e.target.files?.[0];
@@ -564,8 +624,23 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                         title="Download Excel template pre-filled with current centres"
                         className={`flex items-center gap-2 px-3.5 py-2.5 rounded-[5px] border text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 ${isDarkMode ? 'bg-white/5 border-white/10 text-emerald-400 hover:bg-emerald-500/10' : 'bg-white border-slate-200 text-emerald-600 hover:bg-emerald-50 shadow-sm'}`}
                     >
-                        <Download size={15} />
+                        <FileText size={15} />
                         <span className="hidden sm:inline">Template</span>
+                    </button>
+
+                    {/* Export Excel Button */}
+                    <button
+                        onClick={handleExportExcel}
+                        title={selectedAllotmentIds.length > 0 ? `Export ${selectedAllotmentIds.length} selected centre(s) to Excel` : "Export centre allotments to Excel"}
+                        disabled={filteredAllotments.length === 0}
+                        className={`flex items-center gap-2 px-3.5 py-2.5 rounded-[5px] border text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isDarkMode
+                                ? 'bg-white/5 border-white/10 text-blue-400 hover:bg-blue-500/10'
+                                : 'bg-white border-slate-200 text-blue-600 hover:bg-blue-50 shadow-sm'
+                        }`}
+                    >
+                        <Download size={15} />
+                        <span>Export{selectedAllotmentIds.length > 0 ? ` (${selectedAllotmentIds.length})` : ''}</span>
                     </button>
 
                     {/* Import Excel Button */}

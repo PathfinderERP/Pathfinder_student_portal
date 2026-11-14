@@ -32,7 +32,6 @@ const TestAllotment = ({ isOMR = false }) => {
     const [selectedClassLevels, setSelectedClassLevels] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedStatus, setSelectedStatus] = useState({ value: '', label: 'All Status' });
-    const [selectedCompletion, setSelectedCompletion] = useState({ value: '', label: 'All State' });
 
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
@@ -380,20 +379,15 @@ const TestAllotment = ({ isOMR = false }) => {
 
     const statusOptions = [
         { value: '', label: 'All Status' },
-        { value: 'allotted', label: 'Allotted Only' },
-        { value: 'not_allotted', label: 'Not Allotted Only' },
-        { value: 'codes_sent', label: 'Codes Sent' },
-        { value: 'codes_pending', label: 'Codes Pending' },
-    ];
-
-    const completionOptions = [
-        { value: '', label: 'All State' },
-        { value: 'completed', label: 'Completed' },
         { value: 'live', label: 'Live' },
         { value: 'scheduled', label: 'Scheduled' },
         { value: 'not_scheduled', label: 'Not Scheduled' },
-        { value: 'ended', label: 'Ended' },
         { value: 'not_allotted', label: 'Not Allotted' },
+        { value: 'allotted', label: 'Allotted Only' },
+        { value: 'ended', label: 'Ended' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'codes_sent', label: 'Codes Sent' },
+        { value: 'codes_pending', label: 'Codes Pending' },
     ];
 
     const customSelectStyles = useMemo(() => ({
@@ -575,37 +569,30 @@ const TestAllotment = ({ isOMR = false }) => {
                 matchesCentres = selectedCentreIds.some(id => tCentres.includes(id));
             }
 
-            // 6. Allotment Status
+            // 6. Status & State Filter
             let matchesStatus = true;
             const statusVal = selectedStatus?.value;
-            if (statusVal === 'allotted') {
-                matchesStatus = (t.centres_count || 0) > 0;
+            if (statusVal === 'completed') {
+                matchesStatus = Boolean(t.is_completed);
+            } else if (statusVal === 'live') {
+                matchesStatus = Boolean(t.is_running) && !t.is_completed;
+            } else if (statusVal === 'scheduled') {
+                matchesStatus = Boolean(t.has_schedule) && !t.is_running && !t.is_over && !t.is_completed;
+            } else if (statusVal === 'not_scheduled') {
+                matchesStatus = (t.centres_count || 0) > 0 && !t.has_schedule && !t.is_completed;
+            } else if (statusVal === 'ended') {
+                matchesStatus = Boolean(t.is_over) && !t.is_completed;
             } else if (statusVal === 'not_allotted') {
                 matchesStatus = (t.centres_count || 0) === 0;
+            } else if (statusVal === 'allotted') {
+                matchesStatus = (t.centres_count || 0) > 0;
             } else if (statusVal === 'codes_sent') {
                 matchesStatus = (t.codes_sent_count || 0) > 0;
             } else if (statusVal === 'codes_pending') {
                 matchesStatus = (t.centres_count || 0) > 0 && (t.codes_sent_count || 0) < (t.centres_count || 0);
             }
 
-            // 7. Completion / State Filter
-            let matchesCompletion = true;
-            const compVal = selectedCompletion?.value;
-            if (compVal === 'completed') {
-                matchesCompletion = Boolean(t.is_completed);
-            } else if (compVal === 'live') {
-                matchesCompletion = Boolean(t.is_running) && !t.is_completed;
-            } else if (compVal === 'scheduled') {
-                matchesCompletion = Boolean(t.has_schedule) && !t.is_running && !t.is_over && !t.is_completed;
-            } else if (compVal === 'not_scheduled') {
-                matchesCompletion = (t.centres_count || 0) > 0 && !t.has_schedule && !t.is_completed;
-            } else if (compVal === 'ended') {
-                matchesCompletion = Boolean(t.is_over) && !t.is_completed;
-            } else if (compVal === 'not_allotted') {
-                matchesCompletion = (t.centres_count || 0) === 0 && !t.is_completed;
-            }
-
-            // 8. OMR filter
+            // 7. OMR filter
             let matchesOMR = true;
             const examTypeName = t.exam_type_details?.name?.toLowerCase() || '';
             const isOMRTest = examTypeName.includes('omr') || Boolean(t.is_omr_based);
@@ -615,9 +602,9 @@ const TestAllotment = ({ isOMR = false }) => {
                 matchesOMR = !isOMRTest;
             }
 
-            return matchesSearch && matchesSession && matchesTargetExam && matchesClassLevel && matchesCentres && matchesStatus && matchesCompletion && matchesOMR;
+            return matchesSearch && matchesSession && matchesTargetExam && matchesClassLevel && matchesCentres && matchesStatus && matchesOMR;
         });
-    }, [tests, searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion, isOMR]);
+    }, [tests, searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, isOMR]);
 
     const activeFiltersCount = useMemo(() => {
         let count = 0;
@@ -627,9 +614,8 @@ const TestAllotment = ({ isOMR = false }) => {
         if (selectedClassLevels.length > 0) count += selectedClassLevels.length;
         if (selectedCentres.length > 0) count += selectedCentres.length;
         if (selectedStatus?.value) count++;
-        if (selectedCompletion?.value) count++;
         return count;
-    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion]);
+    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus]);
 
     const handleClearAllFilters = () => {
         setSearchTerm('');
@@ -638,14 +624,13 @@ const TestAllotment = ({ isOMR = false }) => {
         setSelectedClassLevels([]);
         setSelectedCentres([]);
         setSelectedStatus({ value: '', label: 'All Status' });
-        setSelectedCompletion({ value: '', label: 'All State' });
         setCurrentPage(1);
     };
 
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion]);
+    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus]);
 
     const pageCount = Math.ceil(filteredRecords.length / itemsPerPage);
     const currentTests = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -703,7 +688,7 @@ const TestAllotment = ({ isOMR = false }) => {
                 </div>
 
                 {/* Filter Options Bar */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 pt-4 border-t border-dashed border-slate-200 dark:border-white/10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 pt-4 border-t border-dashed border-slate-200 dark:border-white/10">
                     {/* Search Input */}
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 z-10" size={15} />
@@ -788,27 +773,13 @@ const TestAllotment = ({ isOMR = false }) => {
                         />
                     </div>
 
-                    {/* Allotment Status Select */}
+                    {/* Status & State Filter */}
                     <div className="min-w-[130px]">
                         <Select
                             options={statusOptions}
                             value={selectedStatus}
                             onChange={(val) => setSelectedStatus(val || { value: '', label: 'All Status' })}
                             placeholder="Status..."
-                            styles={customSelectStyles}
-                            classNamePrefix="react-select"
-                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                            isClearable={false}
-                        />
-                    </div>
-
-                    {/* Completion Status Select */}
-                    <div className="min-w-[130px]">
-                        <Select
-                            options={completionOptions}
-                            value={selectedCompletion}
-                            onChange={(val) => setSelectedCompletion(val || { value: '', label: 'All State' })}
-                            placeholder="State..."
                             styles={customSelectStyles}
                             classNamePrefix="react-select"
                             menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
