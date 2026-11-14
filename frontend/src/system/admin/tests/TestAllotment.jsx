@@ -5,7 +5,7 @@ import {
     Search, MapPin, Trash2, X, Check, Loader2, Filter, LayoutGrid, 
     ChevronDown, Mail, Phone, BellRing, ShieldCheck, ChevronLeft, 
     ChevronRight, Layers, RefreshCw, GraduationCap, BookOpen, 
-    RotateCcw, SlidersHorizontal 
+    RotateCcw, SlidersHorizontal, Calendar, CalendarDays, Clock 
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -32,6 +32,62 @@ const TestAllotment = ({ isOMR = false }) => {
     const [selectedClassLevels, setSelectedClassLevels] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedStatus, setSelectedStatus] = useState({ value: '', label: 'All Status' });
+
+    // Date Range Filter State
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [dateFilterType, setDateFilterType] = useState('any'); // 'any', 'schedule', 'created'
+
+    const toLocalDateString = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const applyDatePreset = (preset) => {
+        const now = new Date();
+        if (preset === 'today') {
+            const str = toLocalDateString(now);
+            setStartDate(str);
+            setEndDate(str);
+        } else if (preset === 'week') {
+            const currentDay = now.getDay();
+            const distanceToMon = currentDay === 0 ? -6 : 1 - currentDay;
+            const monday = new Date(now);
+            monday.setDate(now.getDate() + distanceToMon);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            setStartDate(toLocalDateString(monday));
+            setEndDate(toLocalDateString(sunday));
+        } else if (preset === 'month') {
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            setStartDate(toLocalDateString(firstDay));
+            setEndDate(toLocalDateString(lastDay));
+        }
+    };
+
+    const formatDateDisplay = (dateStr, dateOnly = false) => {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            const day = d.getDate();
+            const month = d.toLocaleString('en-US', { month: 'short' });
+            const year = d.getFullYear();
+            if (dateOnly) {
+                return `${day} ${month} ${year}`;
+            }
+            let hours = d.getHours();
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            return `${day} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
+        } catch {
+            return dateStr;
+        }
+    };
 
     const activeFetchKeysRef = useRef(new Set()); // Track in-flight requests
 
@@ -602,23 +658,61 @@ const TestAllotment = ({ isOMR = false }) => {
                 matchesOMR = !isOMRTest;
             }
 
-            return matchesSearch && matchesSession && matchesTargetExam && matchesClassLevel && matchesCentres && matchesStatus && matchesOMR;
+            // 8. Date Range Filter
+            let matchesDateRange = true;
+            if (startDate || endDate) {
+                const startTs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : null;
+                const endTs = endDate ? new Date(`${endDate}T23:59:59.999`).getTime() : null;
+
+                const testStartTs = t.start_time ? new Date(t.start_time).getTime() : null;
+                const testEndTs = t.end_time ? new Date(t.end_time).getTime() : null;
+                const testCreatedTs = t.created_at ? new Date(t.created_at).getTime() : null;
+
+                const hasSchedule = Boolean(testStartTs || testEndTs);
+
+                // Schedule overlap: test interval intersects with filter interval
+                const scheduleMatches = hasSchedule && (
+                    (!startTs || (testEndTs ? testEndTs >= startTs : testStartTs >= startTs)) &&
+                    (!endTs || (testStartTs ? testStartTs <= endTs : testEndTs <= endTs))
+                );
+
+                // Creation date match
+                const createdMatches = Boolean(testCreatedTs) && (
+                    (!startTs || testCreatedTs >= startTs) &&
+                    (!endTs || testCreatedTs <= endTs)
+                );
+
+                if (dateFilterType === 'schedule') {
+                    matchesDateRange = scheduleMatches;
+                } else if (dateFilterType === 'created') {
+                    matchesDateRange = createdMatches;
+                } else {
+                    // 'any': match schedule overlap if scheduled, or created if unscheduled, or either
+                    matchesDateRange = hasSchedule ? (scheduleMatches || createdMatches) : createdMatches;
+                }
+            }
+
+            return matchesSearch && matchesSession && matchesTargetExam && matchesClassLevel && matchesCentres && matchesStatus && matchesOMR && matchesDateRange;
         });
-    }, [tests, searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, isOMR]);
+    }, [tests, searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, isOMR, startDate, endDate, dateFilterType]);
 
     const activeFiltersCount = useMemo(() => {
         let count = 0;
         if (searchTerm.trim()) count++;
+        if (startDate || endDate) count++;
         if (selectedSessions.length > 0) count += selectedSessions.length;
         if (selectedTargetExams.length > 0) count += selectedTargetExams.length;
         if (selectedClassLevels.length > 0) count += selectedClassLevels.length;
         if (selectedCentres.length > 0) count += selectedCentres.length;
         if (selectedStatus?.value) count++;
         return count;
-    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus]);
+    }, [searchTerm, startDate, endDate, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus]);
 
     const handleClearAllFilters = () => {
         setSearchTerm('');
+        setStartDate('');
+        setEndDate('');
+        setDateFilterType('any');
         setSelectedSessions([]);
         setSelectedTargetExams([]);
         setSelectedClassLevels([]);
@@ -630,7 +724,7 @@ const TestAllotment = ({ isOMR = false }) => {
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus]);
+    }, [searchTerm, startDate, endDate, dateFilterType, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus]);
 
     const pageCount = Math.ceil(filteredRecords.length / itemsPerPage);
     const currentTests = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -687,10 +781,10 @@ const TestAllotment = ({ isOMR = false }) => {
                     </div>
                 </div>
 
-                {/* Filter Options Bar */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 pt-4 border-t border-dashed border-slate-200 dark:border-white/10">
+                {/* Primary Search & Date Range Toolbar */}
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-4 border-t border-dashed border-slate-200 dark:border-white/10">
                     {/* Search Input */}
-                    <div className="relative">
+                    <div className="relative flex-1 min-w-[200px] max-w-lg">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 z-10" size={15} />
                         <input
                             type="text"
@@ -713,6 +807,112 @@ const TestAllotment = ({ isOMR = false }) => {
                         )}
                     </div>
 
+                    {/* Date Range Filter Controls */}
+                    <div className={`flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-[5px] border transition-all ${
+                        startDate || endDate 
+                            ? (isDarkMode ? 'bg-orange-500/5 border-orange-500/30' : 'bg-orange-50/60 border-orange-200')
+                            : (isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-slate-50 border-slate-200')
+                    }`}>
+                        <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-orange-500">
+                            <Calendar size={14} />
+                            <span className="hidden sm:inline">Date Range:</span>
+                        </div>
+
+                        {/* From Date */}
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-black uppercase text-slate-400">From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className={`px-2 py-1 rounded-[4px] border text-xs font-bold outline-none transition-all h-[32px] ${
+                                    isDarkMode
+                                        ? 'bg-[#10141D] border-white/10 text-white focus:border-orange-500'
+                                        : 'bg-white border-slate-200 text-slate-900 focus:border-orange-500 shadow-sm'
+                                }`}
+                                title="From Date"
+                            />
+                        </div>
+
+                        {/* To Date */}
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-black uppercase text-slate-400">To</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                min={startDate || undefined}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className={`px-2 py-1 rounded-[4px] border text-xs font-bold outline-none transition-all h-[32px] ${
+                                    isDarkMode
+                                        ? 'bg-[#10141D] border-white/10 text-white focus:border-orange-500'
+                                        : 'bg-white border-slate-200 text-slate-900 focus:border-orange-500 shadow-sm'
+                                }`}
+                                title="To Date"
+                            />
+                        </div>
+
+                        {/* Date Filter Target Selector */}
+                        <select
+                            value={dateFilterType}
+                            onChange={(e) => setDateFilterType(e.target.value)}
+                            className={`px-2 py-1 rounded-[4px] border text-[10px] font-black uppercase outline-none cursor-pointer h-[32px] ${
+                                isDarkMode
+                                    ? 'bg-[#10141D] border-white/10 text-slate-300 focus:border-orange-500'
+                                    : 'bg-white border-slate-200 text-slate-700 focus:border-orange-500 shadow-sm'
+                            }`}
+                            title="Filter target: Schedule date, created date, or both"
+                        >
+                            <option value="any">Schedule / Created</option>
+                            <option value="schedule">Schedule Date</option>
+                            <option value="created">Created Date</option>
+                        </select>
+
+                        {/* Quick Presets */}
+                        <div className="flex items-center gap-1 pl-1 border-l border-slate-200 dark:border-white/10">
+                            <button
+                                type="button"
+                                onClick={() => applyDatePreset('today')}
+                                className={`px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-wider transition-all ${
+                                    isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}
+                            >
+                                Today
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => applyDatePreset('week')}
+                                className={`px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-wider transition-all ${
+                                    isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}
+                            >
+                                Week
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => applyDatePreset('month')}
+                                className={`px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-wider transition-all ${
+                                    isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}
+                            >
+                                Month
+                            </button>
+
+                            {(startDate || endDate) && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setStartDate(''); setEndDate(''); }}
+                                    className="p-1 rounded-[4px] text-rose-500 hover:bg-rose-500/10 transition-all"
+                                    title="Clear Date Range"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Dropdown Filters Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-3">
                     {/* Session Multi-Select */}
                     <div className="min-w-[140px]">
                         <Select
@@ -790,9 +990,23 @@ const TestAllotment = ({ isOMR = false }) => {
 
                 {/* Filter Summary Footer */}
                 <div className={`mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold pt-3 border-t ${isDarkMode ? 'text-slate-400 border-white/5' : 'text-slate-600 border-slate-100'}`}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <SlidersHorizontal size={14} className="text-orange-500" />
                         <span>Showing <strong className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{filteredRecords.length}</strong> of <strong className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{tests.length}</strong> tests</span>
+                        
+                        {(startDate || endDate) && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                <CalendarDays size={12} />
+                                {startDate ? formatDateDisplay(startDate, true) : 'Any'} → {endDate ? formatDateDisplay(endDate, true) : 'Any'}
+                                <button
+                                    onClick={() => { setStartDate(''); setEndDate(''); }}
+                                    className="ml-1 hover:text-rose-500 transition-colors"
+                                    title="Remove date filter"
+                                >
+                                    <X size={11} />
+                                </button>
+                            </span>
+                        )}
                     </div>
                     {activeFiltersCount > 0 && (
                         <span className="text-[11px] font-bold text-orange-500 uppercase tracking-wider bg-orange-500/10 px-2.5 py-1 rounded-[4px]">
@@ -879,6 +1093,24 @@ const TestAllotment = ({ isOMR = false }) => {
                                             <span className={`text-[9px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                                 {Array.isArray(test.sessions_details) && test.sessions_details.length > 0 ? (test.sessions_details.length > 3 ? `${test.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${test.sessions_details.length - 3} session` : test.sessions_details.map(s => s.name).join(', ')) : (test.session_details?.name || '-')} • {Array.isArray(test.class_levels_details) && test.class_levels_details.length > 0 ? test.class_levels_details.map(c => c.name).join(', ') : (test.class_level_details?.name || '-')} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
                                             </span>
+                                            {(test.start_time || test.created_at) && (
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                    {test.start_time ? (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-blue-500 dark:text-blue-400" title={`Schedule: ${formatDateDisplay(test.start_time)} to ${formatDateDisplay(test.end_time)}`}>
+                                                            <Calendar size={10} />
+                                                            <span>
+                                                                {formatDateDisplay(test.start_time)}
+                                                                {test.end_time && ` — ${formatDateDisplay(test.end_time)}`}
+                                                            </span>
+                                                        </span>
+                                                    ) : test.created_at ? (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-400 dark:text-slate-500" title={`Created: ${formatDateDisplay(test.created_at)}`}>
+                                                            <Clock size={10} />
+                                                            <span>Created {formatDateDisplay(test.created_at, true)}</span>
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                     <td className={`py-5 px-6 font-black text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>{test.code}</td>

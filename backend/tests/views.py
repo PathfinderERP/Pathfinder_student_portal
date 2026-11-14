@@ -975,6 +975,15 @@ class TestViewSet(viewsets.ModelViewSet):
                         bool(a['end_time']) and a['end_time'] < now_dt
                         for a in t_allotments if a.get('start_time')
                     )
+
+                    valid_starts = [a['start_time'] for a in t_allotments if a.get('start_time')]
+                    valid_ends = [a['end_time'] for a in t_allotments if a.get('end_time')]
+                    min_start = min(valid_starts) if valid_starts else None
+                    max_end = max(valid_ends) if valid_ends else None
+
+                    created_at_val = doc.get('created_at')
+                    if hasattr(created_at_val, 'isoformat'):
+                        created_at_val = created_at_val.isoformat()
                     
                     item = {
                         'id': test_id,
@@ -988,7 +997,9 @@ class TestViewSet(viewsets.ModelViewSet):
                         'has_schedule': has_schedule,
                         'is_omr_based': doc.get('is_omr_based', False),
                         'is_result_published': doc.get('is_result_published', False),
-                        'created_at': doc.get('created_at'),
+                        'created_at': created_at_val,
+                        'start_time': min_start.isoformat() if min_start else None,
+                        'end_time': max_end.isoformat() if max_end else None,
                         
                         # Primitive IDs (for backwards compatibility)
                         'session': str(doc.get('session_id')) if doc.get('session_id') else None,

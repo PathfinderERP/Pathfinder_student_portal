@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import {
     ArrowLeft, Search, RefreshCw, Smartphone, Calendar, Clock,
     Edit2, Send, Wand2, Loader2, X, ShieldCheck, BellRing, Mail, CheckSquare, Square, Trash2, Check, FileText,
-    FileSpreadsheet, Upload, Download, AlertCircle, FileUp
+    FileSpreadsheet, Upload, Download, AlertCircle, FileUp, Copy
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -16,6 +16,7 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [copiedId, setCopiedId] = useState(null);
     const activeFetchKeyRef = useRef(null); // Prevent duplicate simultaneous requests
 
     const getAuthConfig = useCallback(() => {
@@ -55,6 +56,16 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
     const triggerAlert = (message, type = 'success') => {
         setAlert({ show: true, message, type });
         setTimeout(() => setAlert(prev => ({ ...prev, show: false })), 3000);
+    };
+
+    const handleCopyCode = (id, code) => {
+        if (!code) return;
+        navigator.clipboard.writeText(String(code));
+        setCopiedId(id);
+        triggerAlert(`Access code "${code}" copied to clipboard!`, 'success');
+        setTimeout(() => {
+            setCopiedId(null);
+        }, 2000);
     };
 
     const fetchAllotments = useCallback(async (force = false) => {
@@ -761,9 +772,13 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                     </td>
                                     <td className="py-5 px-6 text-center">
                                         {allotment.access_code ? (
-                                            <div className="flex items-center gap-2 justify-center">
+                                            <div className="flex items-center gap-1.5 justify-center">
                                                 <div className="relative group/history inline-block">
-                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-[5px] text-xs font-bold font-mono tracking-widest border border-blue-500/20 cursor-pointer">
+                                                    <span 
+                                                        onClick={() => handleCopyCode(allotment.id, allotment.access_code)}
+                                                        className="px-3 py-1.5 bg-blue-500/10 text-blue-500 rounded-[5px] text-xs font-bold font-mono tracking-widest border border-blue-500/20 cursor-pointer hover:bg-blue-500/20 transition-all inline-block"
+                                                        title="Click to copy code"
+                                                    >
                                                         {allotment.access_code}
                                                     </span>
                                                     {/* History Tooltip */}
@@ -796,7 +811,26 @@ const CentreAllotmentDetails = ({ test, onBack }) => {
                                                         </div>
                                                     )}
                                                 </div>
-                                                {/* Removed Manual Button */}
+
+                                                {/* Copy Code Button */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopyCode(allotment.id, allotment.access_code)}
+                                                    className={`p-1.5 rounded-[5px] transition-all flex items-center justify-center cursor-pointer active:scale-90 ${
+                                                        copiedId === allotment.id
+                                                            ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/40 shadow-sm'
+                                                            : isDarkMode
+                                                                ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 border border-white/10'
+                                                                : 'bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 border border-slate-200 shadow-sm'
+                                                    }`}
+                                                    title={copiedId === allotment.id ? "Copied!" : "Copy code"}
+                                                >
+                                                    {copiedId === allotment.id ? (
+                                                        <Check size={13} className="text-emerald-500 animate-in zoom-in-75 duration-200" />
+                                                    ) : (
+                                                        <Copy size={13} />
+                                                    )}
+                                                </button>
                                             </div>
                                         ) : (
                                             <button
