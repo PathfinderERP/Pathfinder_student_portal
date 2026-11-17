@@ -17,6 +17,62 @@ export const useTestFilters = ({
     const [selectedStatus, setSelectedStatus] = useState({ value: '', label: 'All Status' });
     const [selectedCompletion, setSelectedCompletion] = useState({ value: '', label: 'All State' });
 
+    // Date Range Filter State
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [dateFilterType, setDateFilterType] = useState('any'); // 'any', 'schedule', 'created'
+
+    const toLocalDateString = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const applyDatePreset = (preset) => {
+        const now = new Date();
+        if (preset === 'today') {
+            const str = toLocalDateString(now);
+            setStartDate(str);
+            setEndDate(str);
+        } else if (preset === 'week') {
+            const currentDay = now.getDay();
+            const distanceToMon = currentDay === 0 ? -6 : 1 - currentDay;
+            const monday = new Date(now);
+            monday.setDate(now.getDate() + distanceToMon);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            setStartDate(toLocalDateString(monday));
+            setEndDate(toLocalDateString(sunday));
+        } else if (preset === 'month') {
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            setStartDate(toLocalDateString(firstDay));
+            setEndDate(toLocalDateString(lastDay));
+        }
+    };
+
+    const formatDateDisplay = (dateStr, dateOnly = false) => {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            const day = d.getDate();
+            const month = d.toLocaleString('en-US', { month: 'short' });
+            const year = d.getFullYear();
+            if (dateOnly) {
+                return `${day} ${month} ${year}`;
+            }
+            let hours = d.getHours();
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            return `${day} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
+        } catch {
+            return dateStr;
+        }
+    };
+
     // Options Generators
     const sessionOptions = useMemo(() => {
         const uniqueNames = new Set();
@@ -212,13 +268,48 @@ export const useTestFilters = ({
                 matchesOMR = !isOMRTest;
             }
 
-            return matchesSearch && matchesSession && matchesTargetExam && matchesClassLevel && matchesCentres && matchesStatus && matchesCompletion && matchesOMR;
+            // 9. Date Range Filter
+            let matchesDateRange = true;
+            if (startDate || endDate) {
+                const startTs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : null;
+                const endTs = endDate ? new Date(`${endDate}T23:59:59.999`).getTime() : null;
+
+                const testStartTs = t.start_time ? new Date(t.start_time).getTime() : null;
+                const testEndTs = t.end_time ? new Date(t.end_time).getTime() : null;
+                const testCreatedTs = t.created_at ? new Date(t.created_at).getTime() : null;
+
+                const hasSchedule = Boolean(testStartTs || testEndTs);
+
+                // Schedule overlap: test interval intersects with filter interval
+                const scheduleMatches = hasSchedule && (
+                    (!startTs || (testEndTs ? testEndTs >= startTs : testStartTs >= startTs)) &&
+                    (!endTs || (testStartTs ? testStartTs <= endTs : testEndTs <= endTs))
+                );
+
+                // Creation date match
+                const createdMatches = Boolean(testCreatedTs) && (
+                    (!startTs || testCreatedTs >= startTs) &&
+                    (!endTs || testCreatedTs <= endTs)
+                );
+
+                if (dateFilterType === 'schedule') {
+                    matchesDateRange = scheduleMatches;
+                } else if (dateFilterType === 'created') {
+                    matchesDateRange = createdMatches;
+                } else {
+                    // 'any': match schedule overlap if scheduled, or created if unscheduled, or either
+                    matchesDateRange = hasSchedule ? (scheduleMatches || createdMatches) : createdMatches;
+                }
+            }
+
+            return matchesSearch && matchesSession && matchesTargetExam && matchesClassLevel && matchesCentres && matchesStatus && matchesCompletion && matchesOMR && matchesDateRange;
         });
-    }, [tests, searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion, isOMR, includeAllotmentStatus]);
+    }, [tests, searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion, isOMR, includeAllotmentStatus, startDate, endDate, dateFilterType]);
 
     const activeFiltersCount = useMemo(() => {
         let count = 0;
         if (searchTerm.trim()) count++;
+        if (startDate || endDate) count++;
         if (selectedSessions.length > 0) count += selectedSessions.length;
         if (selectedTargetExams.length > 0) count += selectedTargetExams.length;
         if (selectedClassLevels.length > 0) count += selectedClassLevels.length;
@@ -226,10 +317,13 @@ export const useTestFilters = ({
         if (includeAllotmentStatus && selectedStatus?.value) count++;
         if (selectedCompletion?.value) count++;
         return count;
-    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion, includeAllotmentStatus]);
+    }, [searchTerm, startDate, endDate, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedStatus, selectedCompletion, includeAllotmentStatus]);
 
     const handleClearAllFilters = () => {
         setSearchTerm('');
+        setStartDate('');
+        setEndDate('');
+        setDateFilterType('any');
         setSelectedSessions([]);
         setSelectedTargetExams([]);
         setSelectedClassLevels([]);
@@ -253,6 +347,14 @@ export const useTestFilters = ({
         setSelectedStatus,
         selectedCompletion,
         setSelectedCompletion,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
+        dateFilterType,
+        setDateFilterType,
+        applyDatePreset,
+        formatDateDisplay,
         sessionOptions,
         targetExamOptions,
         classLevelOptions,

@@ -1,10 +1,19 @@
 import React, { useMemo } from 'react';
 import Select from 'react-select';
-import { Search, X, RotateCcw, SlidersHorizontal, Filter } from 'lucide-react';
+import { Search, X, RotateCcw, SlidersHorizontal, Filter, Calendar, CalendarDays } from 'lucide-react';
 
 export const TestFilterToolbar = ({
     searchTerm,
     setSearchTerm,
+    startDate = '',
+    setStartDate = null,
+    endDate = '',
+    setEndDate = null,
+    dateFilterType = 'any',
+    setDateFilterType = null,
+    applyDatePreset = null,
+    formatDateDisplay = null,
+    showDateFilter = true,
     sessionOptions = [],
     selectedSessions = [],
     setSelectedSessions,
@@ -151,9 +160,15 @@ export const TestFilterToolbar = ({
         }),
     }), [isDarkMode]);
 
-    const gridColsClass = statusOptions 
-        ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7"
-        : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6";
+    const hasDateFilterRow = Boolean(showDateFilter && setStartDate);
+
+    const gridColsClass = hasDateFilterRow
+        ? (statusOptions
+            ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+            : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5")
+        : (statusOptions 
+            ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7"
+            : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6");
 
     return (
         <div className={`p-6 rounded-[5px] border shadow-xl mb-6 transition-all ${
@@ -194,31 +209,169 @@ export const TestFilterToolbar = ({
                 </div>
             </div>
 
-            {/* Filter Dropdowns Grid */}
-            <div className={`grid ${gridColsClass} gap-3 pt-4 border-t border-dashed border-slate-200 dark:border-white/10`}>
-                {/* Search Input */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 z-10" size={15} />
-                    <input
-                        type="text"
-                        placeholder="Search name / code..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`w-full pl-9 pr-8 py-2 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-2 h-[38px] ${
-                            isDarkMode 
-                                ? 'bg-[#10141D] border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/20 placeholder:text-slate-500' 
-                                : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-blue-500/10 placeholder:text-slate-400 shadow-sm'
-                        }`}
-                    />
-                    {searchTerm && (
-                        <button
-                            onClick={() => setSearchTerm('')}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                        >
-                            <X size={14} />
-                        </button>
-                    )}
+            {/* Primary Search & Date Range Toolbar (When Date Filter Enabled) */}
+            {hasDateFilterRow && (
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-4 border-t border-dashed border-slate-200 dark:border-white/10">
+                    {/* Search Input */}
+                    <div className="relative flex-1 min-w-[200px] max-w-lg">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 z-10" size={15} />
+                        <input
+                            type="text"
+                            placeholder="Search name / code..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className={`w-full pl-9 pr-8 py-2 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-2 h-[38px] ${
+                                isDarkMode 
+                                    ? 'bg-[#10141D] border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/20 placeholder:text-slate-500' 
+                                    : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-blue-500/10 placeholder:text-slate-400 shadow-sm'
+                            }`}
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Date Range Filter Controls */}
+                    <div className={`flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-[5px] border transition-all ${
+                        startDate || endDate 
+                            ? (isDarkMode ? 'bg-orange-500/5 border-orange-500/30' : 'bg-orange-50/60 border-orange-200')
+                            : (isDarkMode ? 'bg-[#0B0F17] border-white/10' : 'bg-slate-50 border-slate-200')
+                    }`}>
+                        <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-orange-500">
+                            <Calendar size={14} />
+                            <span className="hidden sm:inline">Date Range:</span>
+                        </div>
+
+                        {/* From Date */}
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-black uppercase text-slate-400">From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className={`px-2 py-1 rounded-[4px] border text-xs font-bold outline-none transition-all h-[32px] ${
+                                    isDarkMode
+                                        ? 'bg-[#10141D] border-white/10 text-white focus:border-orange-500'
+                                        : 'bg-white border-slate-200 text-slate-900 focus:border-orange-500 shadow-sm'
+                                }`}
+                                title="From Date"
+                            />
+                        </div>
+
+                        {/* To Date */}
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-black uppercase text-slate-400">To</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                min={startDate || undefined}
+                                onChange={(e) => setEndDate && setEndDate(e.target.value)}
+                                className={`px-2 py-1 rounded-[4px] border text-xs font-bold outline-none transition-all h-[32px] ${
+                                    isDarkMode
+                                        ? 'bg-[#10141D] border-white/10 text-white focus:border-orange-500'
+                                        : 'bg-white border-slate-200 text-slate-900 focus:border-orange-500 shadow-sm'
+                                }`}
+                                title="To Date"
+                            />
+                        </div>
+
+                        {/* Date Filter Target Selector */}
+                        {setDateFilterType && (
+                            <select
+                                value={dateFilterType}
+                                onChange={(e) => setDateFilterType(e.target.value)}
+                                className={`px-2 py-1 rounded-[4px] border text-[10px] font-black uppercase outline-none cursor-pointer h-[32px] ${
+                                    isDarkMode
+                                        ? 'bg-[#10141D] border-white/10 text-slate-300 focus:border-orange-500'
+                                        : 'bg-white border-slate-200 text-slate-700 focus:border-orange-500 shadow-sm'
+                                }`}
+                                title="Filter target: Schedule date, created date, or both"
+                            >
+                                <option value="any">Schedule / Created</option>
+                                <option value="schedule">Schedule Date</option>
+                                <option value="created">Created Date</option>
+                            </select>
+                        )}
+
+                        {/* Quick Presets */}
+                        {applyDatePreset && (
+                            <div className="flex items-center gap-1 pl-1 border-l border-slate-200 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => applyDatePreset('today')}
+                                    className={`px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-wider transition-all ${
+                                        isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                    }`}
+                                >
+                                    Today
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => applyDatePreset('week')}
+                                    className={`px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-wider transition-all ${
+                                        isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                    }`}
+                                >
+                                    Week
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => applyDatePreset('month')}
+                                    className={`px-2 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-wider transition-all ${
+                                        isDarkMode ? 'bg-white/5 hover:bg-white/10 text-slate-300' : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                                    }`}
+                                >
+                                    Month
+                                </button>
+
+                                {(startDate || endDate) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setStartDate(''); if (setEndDate) setEndDate(''); }}
+                                        className="p-1 rounded-[4px] text-rose-500 hover:bg-rose-500/10 transition-all"
+                                        title="Clear Date Range"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
+            )}
+
+            {/* Filter Dropdowns Grid */}
+            <div className={`grid ${gridColsClass} gap-3 ${hasDateFilterRow ? "pt-3" : "pt-4 border-t border-dashed border-slate-200 dark:border-white/10"}`}>
+                {/* Search Input (only when no date filter row) */}
+                {!hasDateFilterRow && (
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 z-10" size={15} />
+                        <input
+                            type="text"
+                            placeholder="Search name / code..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className={`w-full pl-9 pr-8 py-2 rounded-[5px] border text-xs font-bold outline-none transition-all focus:ring-2 h-[38px] ${
+                                isDarkMode 
+                                    ? 'bg-[#10141D] border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/20 placeholder:text-slate-500' 
+                                    : 'bg-white border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-blue-500/10 placeholder:text-slate-400 shadow-sm'
+                            }`}
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* Session Multi-Select */}
                 {setSelectedSessions && (
@@ -325,9 +478,25 @@ export const TestFilterToolbar = ({
             <div className={`mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold pt-3 border-t ${
                 isDarkMode ? 'text-slate-400 border-white/5' : 'text-slate-600 border-slate-100'
             }`}>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <SlidersHorizontal size={14} className="text-orange-500" />
                     <span>Showing <strong className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{filteredCount}</strong> of <strong className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{totalCount}</strong> tests</span>
+
+                    {(startDate || endDate) && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                            <CalendarDays size={12} />
+                            {startDate ? (formatDateDisplay ? formatDateDisplay(startDate, true) : startDate) : 'Any'} → {endDate ? (formatDateDisplay ? formatDateDisplay(endDate, true) : endDate) : 'Any'}
+                            {setStartDate && (
+                                <button
+                                    onClick={() => { setStartDate(''); if (setEndDate) setEndDate(''); }}
+                                    className="ml-1 hover:text-rose-500 transition-colors"
+                                    title="Remove date filter"
+                                >
+                                    <X size={11} />
+                                </button>
+                            )}
+                        </span>
+                    )}
                 </div>
                 {activeFiltersCount > 0 && (
                     <span className="text-[11px] font-bold text-orange-500 uppercase tracking-wider bg-orange-500/10 px-2.5 py-1 rounded-[4px]">

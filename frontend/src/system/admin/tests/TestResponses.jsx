@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft, ChevronRight, Trash2, Unlock, CheckCircle, Filter, Layers, UploadCloud, X, AlertTriangle, Edit3, CheckSquare, Download, FileSpreadsheet } from 'lucide-react';
+import { FileSearch, Search, RefreshCw, Users, FileText, ChevronLeft, ChevronRight, Trash2, Unlock, CheckCircle, Filter, Layers, UploadCloud, X, AlertTriangle, Edit3, CheckSquare, Download, FileSpreadsheet, Calendar, Clock } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -53,6 +53,14 @@ const TestResponses = ({ isOMR = false }) => {
         setSelectedCentres,
         selectedCompletion,
         setSelectedCompletion,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
+        dateFilterType,
+        setDateFilterType,
+        applyDatePreset,
+        formatDateDisplay,
         sessionOptions,
         targetExamOptions,
         classLevelOptions,
@@ -239,7 +247,7 @@ const TestResponses = ({ isOMR = false }) => {
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedCompletion]);
+    }, [searchTerm, selectedSessions, selectedTargetExams, selectedClassLevels, selectedCentres, selectedCompletion, startDate, endDate, dateFilterType]);
 
     const pageCount = Math.ceil(filteredTests.length / itemsPerPage);
     const currentTests = filteredTests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -671,6 +679,15 @@ const TestResponses = ({ isOMR = false }) => {
                     <TestFilterToolbar
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
+                        startDate={startDate}
+                        setStartDate={setStartDate}
+                        endDate={endDate}
+                        setEndDate={setEndDate}
+                        dateFilterType={dateFilterType}
+                        setDateFilterType={setDateFilterType}
+                        applyDatePreset={applyDatePreset}
+                        formatDateDisplay={formatDateDisplay}
+                        showDateFilter={true}
                         sessionOptions={sessionOptions}
                         selectedSessions={selectedSessions}
                         setSelectedSessions={setSelectedSessions}
@@ -767,6 +784,24 @@ const TestResponses = ({ isOMR = false }) => {
                                                     <span className="text-[9px] font-bold opacity-40 uppercase tracking-wider">
                                                         {Array.isArray(test.sessions_details) && test.sessions_details.length > 0 ? (test.sessions_details.length > 3 ? `${test.sessions_details.slice(0, 3).map(s => s.name).join(', ')} + ${test.sessions_details.length - 3} session` : test.sessions_details.map(s => s.name).join(', ')) : (test.session_details?.name || '-')} • {Array.isArray(test.class_levels_details) && test.class_levels_details.length > 0 ? test.class_levels_details.map(c => c.name).join(', ') : (test.class_level_details?.name || '-')} • {Array.isArray(test.target_exam_details) ? (test.target_exam_details.length > 3 ? `${test.target_exam_details.slice(0, 3).map(te => te.name).join(', ')} + ${test.target_exam_details.length - 3} test` : test.target_exam_details.map(te => te.name).join(', ')) : (test.target_exam_details?.name || '-')}
                                                     </span>
+                                                    {(test.start_time || test.created_at) && (
+                                                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                            {test.start_time ? (
+                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-blue-500 dark:text-blue-400" title={`Schedule: ${formatDateDisplay(test.start_time)} to ${formatDateDisplay(test.end_time)}`}>
+                                                                    <Calendar size={10} />
+                                                                    <span>
+                                                                        {formatDateDisplay(test.start_time)}
+                                                                        {test.end_time && ` — ${formatDateDisplay(test.end_time)}`}
+                                                                    </span>
+                                                                </span>
+                                                            ) : test.created_at ? (
+                                                                <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-400 dark:text-slate-500" title={`Created: ${formatDateDisplay(test.created_at)}`}>
+                                                                    <Clock size={10} />
+                                                                    <span>Created {formatDateDisplay(test.created_at, true)}</span>
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="py-5 px-6">
